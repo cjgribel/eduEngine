@@ -153,6 +153,36 @@ public:
         return is_child;
     }
 
+    bool is_last_sibling(size_t index) const
+    {
+        assert(index < nodes.size());
+        const auto& node = nodes[index];
+        const auto  stride = node.m_branch_stride;
+
+        // 1) Top‐level (root): check if the next element is another root
+        if (node.m_parent_ofs == 0) {
+            size_t next = index + stride;
+            // If out of bounds or the next node has parent_ofs==0, we're last root
+            return next >= nodes.size() || nodes[next].m_parent_ofs == 0;
+        }
+
+        // 2) Child: compute the parent’s branch range
+        size_t parent_index = index - node.m_parent_ofs;
+        size_t parent_end = parent_index + nodes[parent_index].m_branch_stride;
+        size_t next_sibling = index + stride;
+
+        // If next_sibling is at or beyond the parent’s branch end, we're the last child
+        return next_sibling >= parent_end;
+    }
+
+    /// @brief Find by payload then call the index‐based helper
+    bool is_last_sibling(const PayloadType& payload) const
+    {
+        auto idx = find_node_index(payload);
+        assert(idx != VecTree_NullIndex);
+        return is_last_sibling(idx);
+    }
+
     void reparent(const PayloadType& payload, const PayloadType& parent_payload)
     {
         assert(!is_descendant_of(parent_payload, payload));
@@ -745,8 +775,8 @@ private:
     {
         auto idx = self.find_node_index(start_payload);
         traverse_breadthfirst_impl(
-            self, 
-            idx, 
+            self,
+            idx,
             std::forward<F>(func));
     }
 
@@ -760,8 +790,8 @@ private:
         while (i < self.nodes.size())
         {
             traverse_breadthfirst_impl(
-                self, 
-                i, 
+                self,
+                i,
                 std::forward<F>(func));
             i += self.nodes[i].m_branch_stride;
         }
@@ -778,8 +808,8 @@ public:
     void traverse_breadthfirst(size_t start_index, F&& func) const
     {
         traverse_breadthfirst_impl(
-            *this, 
-            start_index, 
+            *this,
+            start_index,
             std::forward<F>(func));
     }
 
@@ -793,8 +823,8 @@ public:
     void traverse_breadthfirst(size_t start_index, F&& func)
     {
         traverse_breadthfirst_impl(
-            *this, 
-            start_index, 
+            *this,
+            start_index,
             std::forward<F>(func));
     }
 
@@ -808,8 +838,8 @@ public:
     void traverse_breadthfirst(const PayloadType& start_payload, F&& func) const
     {
         traverse_breadthfirst_impl(
-            *this, 
-            start_payload, 
+            *this,
+            start_payload,
             std::forward<F>(func));
     }
 
@@ -823,8 +853,8 @@ public:
     void traverse_breadthfirst(const PayloadType& start_payload, F&& func)
     {
         traverse_breadthfirst_impl(
-            *this, 
-            start_payload, 
+            *this,
+            start_payload,
             std::forward<F>(func));
     }
 
@@ -837,7 +867,7 @@ public:
     void traverse_breadthfirst(F&& func) const
     {
         traverse_breadthfirst_impl(
-            *this, 
+            *this,
             std::forward<F>(func));
     }
 
@@ -850,7 +880,7 @@ public:
     void traverse_breadthfirst(F&& func)
     {
         traverse_breadthfirst_impl(
-            *this, 
+            *this,
             std::forward<F>(func));
     }
 

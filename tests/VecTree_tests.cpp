@@ -6,40 +6,79 @@
 #include <algorithm>
 #include <set>
 
+// ASCII tree illustrations for test configurations
+//
+// SingleRoot:
+// A
+//
+// FlatTree:
+// A
+// ├─ B
+// ├─ C
+// └─ D
+//
+// LinearChain:
+// A
+// └─ B
+//    └─ C
+//       └─ D
+//
+// Balanced:
+// A
+// ├─ B
+// │   ├─ D
+// │   └─ E
+// └─ C
+//     ├─ F
+//     └─ G
+//
+// MultiRoot:
+// A  B  C
+
 using TreeDesc = std::vector<std::pair<std::string, std::string>>;
 
 namespace
 {
     // Named tree descriptions for reusable test configurations
     const std::map<std::string, TreeDesc> test_trees = {
-        {"SingleRoot", { {"A", ""} }},
-        {"FlatTree", { {"A", ""}, {"B", "A"}, {"C", "A"}, {"D", "A"} }},
-        {"LinearChain", { {"A", ""}, {"B", "A"}, {"C", "B"}, {"D", "C"} }},
-        {"Balanced", { {"A", ""}, {"B", "A"}, {"C", "A"}, {"D", "B"}, {"E", "B"}, {"F", "C"}, {"G", "C"} }},
-        {"MultiRoot", { {"A", ""}, {"B", ""}, {"C", ""} }}
+        {"SingleRoot", {{"A", ""}}},
+        {"FlatTree", {{"A", ""}, {"B", "A"}, {"C", "A"}, {"D", "A"}}},
+        {"LinearChain", {{"A", ""}, {"B", "A"}, {"C", "B"}, {"D", "C"}}},
+        {"Balanced", {{"A", ""}, {"B", "A"}, {"C", "A"}, {"D", "B"}, {"E", "B"}, {"F", "C"}, {"G", "C"}}},
+        {"MultiRoot", {{"A", ""}, {"B", ""}, {"C", ""}}}
     };
 
+    // Constraints for depth-first (preorder) traversal: parent before child
     const std::map<std::string, std::vector<std::pair<std::string, std::string>>> depthfirst_constraints = {
-        {"LinearChain", { {"A", "B"}, {"B", "C"}, {"C", "D"} }},
-        {"Balanced", {
-            {"A", "B"}, {"A", "C"},
-            {"B", "D"}, {"B", "E"},
-            {"C", "F"}, {"C", "G"}
-        }}
+        {"SingleRoot", {}},
+        {"FlatTree", {{"A","B"}, {"A","C"}, {"A","D"}}},
+        {"LinearChain", {{"A","B"}, {"B","C"}, {"C","D"}}},
+        {"Balanced", {{"A","B"}, {"A","C"}, {"B","D"}, {"B","E"}, {"C","F"}, {"C","G"}}},
+        {"MultiRoot", {{"A","B"}, {"A","C"}}}
     };
 
+    // Constraints for breadth-first (level-order) traversal: higher-level before lower-level
     const std::map<std::string, std::vector<std::pair<std::string, std::string>>> breadthfirst_constraints = {
-        {"FlatTree", {
-            {"A", "B"}, {"A", "C"}, {"A", "D"}
-        }},
-        {"Balanced", {
-            {"A", "B"}, {"A", "C"},
-            {"B", "D"}, {"B", "E"},
-            {"C", "F"}, {"C", "G"}
-        }}
+        {"FlatTree", {{"A","B"}, {"A","C"}, {"A","D"}}},
+        {"Balanced", {{"A","B"}, {"A","C"}, {"B","D"}, {"B","E"}, {"C","F"}, {"C","G"}, {"B","F"}, {"B","G"}, {"C","D"}, {"C","E"}}},
+        {"LinearChain", {{"A","B"}, {"B","C"}, {"C","D"}}},
+        {"MultiRoot", {{"A","B"}, {"A","C"}}}
     };
 
-    VecTree<std::string> BuildTree(const TreeDesc& desc) {
+    // Progressive traversal follows same parent-before-child ordering as depth-first
+    const auto progressive_constraints = depthfirst_constraints;
+
+    // Ascend traversal: child should appear before parent in upward walk
+    const std::map<std::string, std::vector<std::pair<std::string, std::string>>> ascend_constraints = {
+        {"SingleRoot", {}},
+        {"FlatTree", {{"B","A"}, {"C","A"}, {"D","A"}}},
+        {"LinearChain", {{"D","C"}, {"C","B"}, {"B","A"}}},
+        {"Balanced", {{"D","B"}, {"E","B"}, {"F","C"}, {"G","C"}, {"B","A"}, {"C","A"}}},
+        {"MultiRoot", {}}
+    };
+
+    VecTree<std::string> BuildTree(const TreeDesc& desc)
+    {
         VecTree<std::string> tree;
         for (const auto& [child, parent] : desc) {
             if (parent.empty()) tree.insert_as_root(child);
@@ -48,7 +87,10 @@ namespace
         return tree;
     }
 
-    void PrintTree(const std::string& name, const VecTree<std::string>& tree) {
+    void PrintTree(
+        const std::string& name,
+        const VecTree<std::string>& tree)
+    {
         std::cout << "--- Tree: " << name << " ---\n";
         tree.traverse_depthfirst([&](const std::string& payload, size_t idx, size_t level)
             {
@@ -62,9 +104,28 @@ namespace
             });
     }
 
-    void VerifyOrder(const std::vector<std::string>& order,
+    void PrintTreeFancy(const std::string& name, const VecTree<std::string>& tree)
+    {
+        std::cout << "--- Fancy Tree: " << name << " ---" << std::endl;
+        tree.traverse_depthfirst([&](const std::string& payload, size_t idx, size_t level)
+            {
+                std::string prefix;
+                // indent two spaces per level
+                for (size_t i = 0; i < level; ++i) {
+                    prefix += "   ";
+                }
+                // connector: └─ for last sibling, ├─ otherwise
+                // prefix += (tree.is_last_sibling(idx) ? "└─ " : "├─ ");
+                prefix += (tree.is_last_sibling(idx) ? "`-- " : "|-- ");
+                std::cout << prefix << payload << std::endl;
+            });
+    }
+
+    void VerifyOrder(
+        const std::vector<std::string>& order,
         const std::vector<std::pair<std::string, std::string>>& constraints,
-        const std::string& tree_name) {
+        const std::string& tree_name)
+    {
         for (const auto& [before, after] : constraints) {
             auto it_before = std::find(order.begin(), order.end(), before);
             auto it_after = std::find(order.begin(), order.end(), after);
@@ -90,13 +151,30 @@ namespace
     // }
 }
 
-TEST(VecTreeBasicTest, EmptyTree) {
+#if 0
+// Display tree types being tested
+TEST(VecTreeBasicTest, DisplaysTrees)
+{
+    for (const auto& [name, desc] : test_trees)
+    {
+        SCOPED_TRACE("Tree: " + name);
+        VecTree<std::string> tree = BuildTree(desc);
+        //PrintTree(name, tree);
+        PrintTreeFancy(name, tree);
+    }
+    std::cout << "----------------------------------------\n";
+}
+#endif
+
+TEST(VecTreeBasicTest, EmptyTree)
+{
     VecTree<std::string> tree;
     EXPECT_EQ(tree.size(), 0u);
     EXPECT_FALSE(tree.contains("A"));
 }
 
-TEST(VecTreeBasicTest, InsertAndContains) {
+TEST(VecTreeBasicTest, InsertAndContains)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     EXPECT_EQ(tree.size(), 1u);
@@ -105,7 +183,8 @@ TEST(VecTreeBasicTest, InsertAndContains) {
     EXPECT_TRUE(tree.is_leaf("A"));
 }
 
-TEST(VecTreeInsertTest, InsertChildren) {
+TEST(VecTreeInsertTest, InsertChildren)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     EXPECT_TRUE(tree.insert("B", "A"));
@@ -124,7 +203,8 @@ TEST(VecTreeInsertTest, InsertChildren) {
     EXPECT_TRUE(tree.is_leaf("C"));
 }
 
-TEST(VecTreeNestedTest, NestedInsertionAndRelationships) {
+TEST(VecTreeNestedTest, NestedInsertionAndRelationships)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
@@ -142,7 +222,8 @@ TEST(VecTreeNestedTest, NestedInsertionAndRelationships) {
     EXPECT_EQ(tree.get_parent("D"), "B");
 }
 
-TEST(VecTreeEraseTest, EraseBranch) {
+TEST(VecTreeEraseTest, EraseBranch)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
@@ -157,7 +238,8 @@ TEST(VecTreeEraseTest, EraseBranch) {
     EXPECT_EQ(tree.get_branch_size("A"), 2u);
 }
 
-TEST(VecTreeEraseTest, EraseRootBranch) {
+TEST(VecTreeEraseTest, EraseRootBranch)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
@@ -176,7 +258,8 @@ TEST(VecTreeEraseTest, EraseRootBranch) {
     EXPECT_FALSE(tree.contains("C"));
 }
 
-TEST(VecTreeReparentTest, ReparentNode) {
+TEST(VecTreeReparentTest, ReparentNode)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
@@ -191,7 +274,8 @@ TEST(VecTreeReparentTest, ReparentNode) {
     EXPECT_EQ(tree.get_parent("C"), "B");
 }
 
-TEST(VecTreeUnparentTest, UnparentNode) {
+TEST(VecTreeUnparentTest, UnparentNode)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
@@ -203,15 +287,18 @@ TEST(VecTreeUnparentTest, UnparentNode) {
     EXPECT_FALSE(tree.is_descendant_of("C", "A"));
 }
 
-TEST(VecTreeTraversalTest, DepthFirstTraversal) {
-    for (const auto& [name, desc] : test_trees) {
+TEST(VecTreeTraversalTest, DepthFirstTraversal)
+{
+    for (const auto& [name, desc] : test_trees)
+    {
         SCOPED_TRACE("Tree: " + name);
         VecTree<std::string> tree = BuildTree(desc);
-        PrintTree(name, tree);
+        //PrintTree(name, tree);
 
         std::vector<std::string> order;
-        tree.traverse_depthfirst([&](std::string& payload, size_t idx) {
-            order.push_back(payload);
+        tree.traverse_depthfirst([&](std::string& payload, size_t idx)
+            {
+                order.push_back(payload);
             });
 
         std::set<std::string> expected;
@@ -227,17 +314,19 @@ TEST(VecTreeTraversalTest, DepthFirstTraversal) {
 
 // Breadth-first traversal: verifies that all nodes are visited and that the root appears first.
 // No specific order among siblings is assumed.
-TEST(VecTreeTraversalTest, BreadthFirstTraversal) 
+TEST(VecTreeTraversalTest, BreadthFirstTraversal)
 {
-    for (const auto& [name, desc] : test_trees) {
+    for (const auto& [name, desc] : test_trees)
+    {
         SCOPED_TRACE("Tree: " + name);
         const VecTree<std::string> tree = BuildTree(desc);
-        PrintTree(name, tree);
+        //PrintTree(name, tree);
 
         std::vector<std::string> order;
-        tree.traverse_breadthfirst([&](const std::string& payload, size_t idx) {
-            order.push_back(payload);
-        });
+        tree.traverse_breadthfirst([&](const std::string& payload, size_t idx)
+            {
+                order.push_back(payload);
+            });
 
         std::set<std::string> expected;
         for (auto& [n, _] : desc) expected.insert(n);
@@ -255,22 +344,50 @@ TEST(VecTreeTraversalTest, BreadthFirstTraversal)
 }
 
 #if 0
-TEST(VecTreeTraversalTest, AscendTraversal) {
+TEST(VecTreeTraversalTest, ProgressiveTraversal)
+{
+    for (const auto& [name, desc] : test_trees)
+    {
+        SCOPED_TRACE("Tree: " + name);
+        auto tree = BuildTree(desc);
+        //PrintTree(name, tree);
+
+        std::vector<std::string> order;
+        tree.traverse_progressive([&](std::string* node, std::string*, size_t, size_t)
+            {
+                if (node) order.push_back(*node);
+            });
+
+        std::set<std::string> actual(order.begin(), order.end());
+        std::set<std::string> expected;
+        for (auto& [n, _] : desc) expected.insert(n);
+        EXPECT_EQ(actual, expected);
+
+        if (progressive_constraints.contains(name)) {
+            VerifyOrder(order, progressive_constraints.at(name), name);
+        }
+    }
+}
+
+TEST(VecTreeTraversalTest, AscendTraversal)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
     tree.insert("C", "B");
 
     vector<std::string> order;
-    tree.ascend("C", [&](std::string& payload, size_t idx) {
-        order.push_back(payload);
+    tree.ascend("C", [&](std::string& payload, size_t idx)
+        {
+            order.push_back(payload);
         });
 
     vector<std::string> expected = { "C", "B", "A" };
     EXPECT_EQ(order, expected);
 }
 
-TEST(VecTreeTraversalTest, DepthFirstWithLevel) {
+TEST(VecTreeTraversalTest, DepthFirstWithLevel)
+{
     VecTree<std::string> tree;
     tree.insert_as_root("A");
     tree.insert("B", "A");
@@ -278,36 +395,13 @@ TEST(VecTreeTraversalTest, DepthFirstWithLevel) {
     tree.insert("D", "B");
 
     vector<pair<std::string, size_t>> results;
-    tree.traverse_depthfirst([&](std::string& payload, size_t idx, size_t level) {
-        results.emplace_back(payload, level);
+    tree.traverse_depthfirst([&](std::string& payload, size_t idx, size_t level)
+        {
+            results.emplace_back(payload, level);
         });
 
     vector<pair<std::string, size_t>> expected = { {"A", 0}, {"B", 1}, {"D", 2}, {"C", 1} };
     EXPECT_EQ(results, expected);
-}
-
-TEST(VecTreeTraversalTest, ProgressiveTraversal) {
-    VecTree<std::string> tree;
-    tree.insert_as_root("A");
-    tree.insert("B", "A");
-    tree.insert("C", "A");
-    tree.insert("D", "B");
-
-    vector<pair<std::string, std::string>> calls;
-    tree.traverse_progressive([&](std::string* node, std::string* parent, size_t idx, size_t pidx) {
-        calls.emplace_back(
-            node ? *node : std::string(""),
-            parent ? *parent : std::string("(null)")
-        );
-        });
-
-    vector<pair<std::string, std::string>> expected = {
-        {"A", "(null)"},
-        {"B", "A"},
-        {"C", "A"},
-        {"D", "B"}
-    };
-    EXPECT_EQ(calls, expected);
 }
 #endif
 
