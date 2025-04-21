@@ -3,25 +3,91 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <algorithm>
+#include <set>
+
+using TreeDesc = std::vector<std::pair<std::string, std::string>>;
 
 namespace
 {
-    template<class T, class S>
-    void dump_tree_to_stream(
-        const VecTree<T>& tree,
-        S& outstream)
-    {
-        tree.traverse_depthfirst([&](const T& node, size_t index, size_t level)
-            {
-                auto [nbr_children, branch_stride, parent_ofs] = tree.get_node_info(node);
+    // Named tree descriptions for reusable test configurations
+    const std::map<std::string, TreeDesc> test_trees = {
+        {"SingleRoot", { {"A", ""} }},
+        {"FlatTree", { {"A", ""}, {"B", "A"}, {"C", "A"}, {"D", "A"} }},
+        {"LinearChain", { {"A", ""}, {"B", "A"}, {"C", "B"}, {"D", "C"} }},
+        {"Balanced", { {"A", ""}, {"B", "A"}, {"C", "A"}, {"D", "B"}, {"E", "B"}, {"F", "C"}, {"G", "C"} }},
+        {"MultiRoot", { {"A", ""}, {"B", ""}, {"C", ""} }}
+    };
 
-                for (int i = 0; i < level; i++) outstream << "  ";
-                outstream << node
+    const std::map<std::string, std::vector<std::pair<std::string, std::string>>> depthfirst_constraints = {
+        {"LinearChain", { {"A", "B"}, {"B", "C"}, {"C", "D"} }},
+        {"Balanced", {
+            {"A", "B"}, {"A", "C"},
+            {"B", "D"}, {"B", "E"},
+            {"C", "F"}, {"C", "G"}
+        }}
+    };
+
+    const std::map<std::string, std::vector<std::pair<std::string, std::string>>> breadthfirst_constraints = {
+        {"FlatTree", {
+            {"A", "B"}, {"A", "C"}, {"A", "D"}
+        }},
+        {"Balanced", {
+            {"A", "B"}, {"A", "C"},
+            {"B", "D"}, {"B", "E"},
+            {"C", "F"}, {"C", "G"}
+        }}
+    };
+
+    VecTree<std::string> BuildTree(const TreeDesc& desc) {
+        VecTree<std::string> tree;
+        for (const auto& [child, parent] : desc) {
+            if (parent.empty()) tree.insert_as_root(child);
+            else EXPECT_TRUE(tree.insert(child, parent));
+        }
+        return tree;
+    }
+
+    void PrintTree(const std::string& name, const VecTree<std::string>& tree) {
+        std::cout << "--- Tree: " << name << " ---\n";
+        tree.traverse_depthfirst([&](const std::string& payload, size_t idx, size_t level)
+            {
+
+                auto [nbr_children, branch_stride, parent_ofs] = tree.get_node_info(payload);
+                std::cout
+                    << std::string(level * 2, ' ') << "- " << payload
                     << " (children " << nbr_children
                     << ", stride " << branch_stride
                     << ", parent ofs " << parent_ofs << ")\n";
             });
     }
+
+    void VerifyOrder(const std::vector<std::string>& order,
+        const std::vector<std::pair<std::string, std::string>>& constraints,
+        const std::string& tree_name) {
+        for (const auto& [before, after] : constraints) {
+            auto it_before = std::find(order.begin(), order.end(), before);
+            auto it_after = std::find(order.begin(), order.end(), after);
+            EXPECT_LT(it_before, it_after) << "Expected '" << before << "' before '" << after << "' in tree " << tree_name;
+        }
+    }
+
+    // template<class T, class S>
+    // void dump_tree_to_stream(
+    //     const VecTree<T>& tree,
+    //     S& outstream)
+    // {
+    //     tree.traverse_depthfirst([&](const T& node, size_t index, size_t level)
+    //         {
+    //             auto [nbr_children, branch_stride, parent_ofs] = tree.get_node_info(node);
+
+    //             for (int i = 0; i < level; i++) outstream << "  ";
+    //             outstream << node
+    //                 << " (children " << nbr_children
+    //                 << ", stride " << branch_stride
+    //                 << ", parent ofs " << parent_ofs << ")\n";
+    //         });
+    // }
 }
 
 TEST(VecTreeBasicTest, EmptyTree) {
@@ -101,7 +167,7 @@ TEST(VecTreeEraseTest, EraseRootBranch) {
     EXPECT_EQ(tree.size(), 4u);
     EXPECT_EQ(tree.get_nbr_children("A"), 2u);
     EXPECT_EQ(tree.get_branch_size("A"), 4u);
-    
+
     EXPECT_TRUE(tree.erase_branch("A"));
 
     EXPECT_EQ(tree.size(), 0u);
@@ -137,39 +203,58 @@ TEST(VecTreeUnparentTest, UnparentNode) {
     EXPECT_FALSE(tree.is_descendant_of("C", "A"));
 }
 
-#if 0
 TEST(VecTreeTraversalTest, DepthFirstTraversal) {
-    VecTree<std::string> tree;
-    tree.insert_as_root("A");
-    tree.insert("B", "A");
-    tree.insert("C", "A");
-    tree.insert("D", "B");
+    for (const auto& [name, desc] : test_trees) {
+        SCOPED_TRACE("Tree: " + name);
+        VecTree<std::string> tree = BuildTree(desc);
+        PrintTree(name, tree);
 
-    vector<std::string> order;
-    tree.traverse_depthfirst([&](std::string& payload, size_t idx) {
-        order.push_back(payload);
-        });
+        std::vector<std::string> order;
+        tree.traverse_depthfirst([&](std::string& payload, size_t idx) {
+            order.push_back(payload);
+            });
 
-    vector<std::string> expected = { "A", "B", "D", "C" };
-    EXPECT_EQ(order, expected);
+        std::set<std::string> expected;
+        for (auto& [n, _] : desc) expected.insert(n);
+        std::set<std::string> actual(order.begin(), order.end());
+        EXPECT_EQ(actual, expected);
+
+        if (depthfirst_constraints.contains(name)) {
+            VerifyOrder(order, depthfirst_constraints.at(name), name);
+        }
+    }
 }
 
-TEST(VecTreeTraversalTest, BreadthFirstTraversal) {
-    VecTree<std::string> tree;
-    tree.insert_as_root("A");
-    tree.insert("B", "A");
-    tree.insert("C", "A");
-    tree.insert("D", "B");
+// Breadth-first traversal: verifies that all nodes are visited and that the root appears first.
+// No specific order among siblings is assumed.
+TEST(VecTreeTraversalTest, BreadthFirstTraversal) 
+{
+    for (const auto& [name, desc] : test_trees) {
+        SCOPED_TRACE("Tree: " + name);
+        const VecTree<std::string> tree = BuildTree(desc);
+        PrintTree(name, tree);
 
-    vector<std::string> order;
-    tree.traverse_breadthfirst("A", [&](std::string& payload, size_t idx) {
-        order.push_back(payload);
+        std::vector<std::string> order;
+        tree.traverse_breadthfirst([&](const std::string& payload, size_t idx) {
+            order.push_back(payload);
         });
 
-    vector<std::string> expected = { "A", "B", "C", "D" };
-    EXPECT_EQ(order, expected);
+        std::set<std::string> expected;
+        for (auto& [n, _] : desc) expected.insert(n);
+        std::set<std::string> actual(order.begin(), order.end());
+        EXPECT_EQ(actual, expected);
+
+        if (!order.empty()) {
+            EXPECT_TRUE(tree.is_root(order.front()));
+        }
+
+        if (breadthfirst_constraints.contains(name)) {
+            VerifyOrder(order, breadthfirst_constraints.at(name), name);
+        }
+    }
 }
 
+#if 0
 TEST(VecTreeTraversalTest, AscendTraversal) {
     VecTree<std::string> tree;
     tree.insert_as_root("A");
@@ -224,7 +309,7 @@ TEST(VecTreeTraversalTest, ProgressiveTraversal) {
     };
     EXPECT_EQ(calls, expected);
 }
-
+#endif
 
 // Test erasing a leaf and adjusting sibling offsets
 TEST(VecTreeEraseSiblingTest, EraseSiblingAndAdjustOffsets) {
@@ -263,6 +348,5 @@ TEST(VecTreeReparentDeepTest, ReparentMidSubtree) {
     EXPECT_EQ(tree.get_parent("D"), "C");
     EXPECT_TRUE(tree.is_leaf("D"));
 }
-#endif
 
 // main() can be omitted if linked with GTest's main library
