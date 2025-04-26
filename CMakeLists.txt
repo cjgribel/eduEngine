@@ -238,6 +238,6 @@ endif()
 # message(STATUS "Install targets
 
 # Disable testing for now
-# enable_testing()
-# add_subdirectory(tests)
+enable_testing()
+add_subdirectory(tests)
 #

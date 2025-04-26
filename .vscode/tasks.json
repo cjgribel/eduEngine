@@ -93,9 +93,8 @@
                 "reveal": "always",
                 "panel": "shared"
             }
-        }
+        },
         // === TEST TASKS ===
-        /*
         {
             "label": "Run Tests (Debug)",
             "type": "shell",
@@ -119,6 +118,5 @@
             "group": "test",
             "problemMatcher": []
         }
-            */
     ]
 }
