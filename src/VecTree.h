@@ -17,7 +17,7 @@ struct TreeNode
 {
     unsigned m_nbr_children = 0;    // Nbr of children
     unsigned m_branch_stride = 1;   // Branch size including this node
-    unsigned m_parent_ofs = 0;      // Distance to parent, relative parent.
+    unsigned m_parent_ofs = 0;      // Distance to parent, relative parent. 0 = root.
     T m_payload;                    // Payload
 };
 
@@ -54,6 +54,16 @@ public:
     inline size_t size() const
     {
         return nodes.size();
+    }
+
+    void clear()
+    {
+        nodes.clear();
+    }
+
+    void reserve(size_t size)
+    {
+        nodes.reserve(size);
     }
 
     bool contains(const PayloadType& payload) const
@@ -242,7 +252,13 @@ public:
 
     void insert_as_root(const PayloadType& payload)
     {
-        nodes.insert(nodes.end(), TreeNodeType{ .m_payload = payload });
+        nodes.insert(
+            nodes.end(),
+            TreeNodeType{
+                .m_nbr_children = 0,
+                .m_branch_stride = 1,
+                .m_parent_ofs = 0, // root
+                .m_payload = payload });
     }
 
     /// @brief Insert a node
@@ -250,101 +266,88 @@ public:
     /// @param parent_payload Payload of parent node.
     /// @return True if insertion was successfull, false otherwise
     bool insert(
-        const PayloadType& payload,
-        const PayloadType& parent_payload
-    )
-    {
-        auto node = TreeNodeType{ .m_payload = payload };
-
-        // No parent given - insert as root
-        // if (!parent_name.size())
-        // {
-        //     nodes.insert(nodes.begin(), node);
-        //     return true;
-        // }
-
-        // Locate parent
-        auto parent_index = find_node_index(parent_payload);
-        if (parent_index == VecTree_NullIndex)
+        PayloadType const& payload,
+        PayloadType const& parent_payload
+    ) {
+        // Find the parent
+        size_t parent_idx = find_node_index(parent_payload);
+        if (parent_idx == VecTree_NullIndex)
             return false;
-        auto pit = nodes.begin() + parent_index;
 
-        // Update branch strides within the same branch
-        // Iterate backwards from parent to the root and increment strides
-        // ranging to the insertion
-        //
-        auto prit = pit;
-        while (prit >= nodes.begin())
+        // Update branch_stride of ancestors
+        for (size_t idx = parent_idx; ; )
         {
-            if (prit->m_branch_stride > (unsigned)std::distance(prit, pit))
-                prit->m_branch_stride++;
-            // discontinue past root (preceeding trees not affected)
-            if (!prit->m_parent_ofs)
+            nodes[idx].m_branch_stride += 1;
+            if (nodes[idx].m_parent_ofs == 0)
                 break;
-            prit--;
+            idx -= nodes[idx].m_parent_ofs;
         }
 
-        // Update parent offsets
-        // Iterate forward up until the next root and increment parent ofs'
-        // ranging to the insertion
-        //
-        auto pfit = pit + 1;
-        while (pfit < nodes.end())
+        // Update parent_ofs of in-range trailing nodes
+        for (size_t i = parent_idx + 1; i < nodes.size(); ++i)
         {
-            if (!pfit->m_parent_ofs) // discontinue at succeeding root
+            // stop at a subsequent root
+            if (nodes[i].m_parent_ofs == 0)
                 break;
-            if (pfit->m_parent_ofs >= (unsigned)std::distance(pit, pfit))
-                pfit->m_parent_ofs++;
-            pfit++;
+            auto dist = static_cast<unsigned>(i - parent_idx);
+            if (nodes[i].m_parent_ofs >= dist)
+                nodes[i].m_parent_ofs += 1;
         }
 
-        // Increment parent's nbr of children
-        pit->m_nbr_children++;
-        // Insert new node after parent
-        node.m_parent_ofs = 1;
-        nodes.insert(pit + 1, node);
+        // Increment parent child‐count
+        nodes[parent_idx].m_nbr_children += 1;
+
+        // Insert the new node
+        nodes.insert(
+            nodes.begin() + (parent_idx + 1),
+            TreeNodeType{
+                .m_nbr_children = 0,
+                .m_branch_stride = 1,
+                .m_parent_ofs = 1,
+                .m_payload = payload });
 
         return true;
     }
-
-    // Add these inside VecTree<PayloadType>:
 
 private:
     // Core branch-erasure by index (no payload search)
     bool erase_branch_at_index(size_t node_index)
     {
         assert(node_index < nodes.size());
-        // Cannot erase a root
-        //assert(nodes[node_index].m_parent_ofs != 0);
-
         auto const branch_stride = nodes[node_index].m_branch_stride;
-        auto parent_it = nodes.begin() + (node_index - nodes[node_index].m_parent_ofs);
+        auto const parent_ofs = nodes[node_index].m_parent_ofs;
 
-        // 1) Adjust branch_stride up the ancestor chain
-        for (auto it = parent_it; ; --it) {
-            auto dist = static_cast<unsigned>(std::distance(it, parent_it));
-            if (it->m_branch_stride > dist)
-                it->m_branch_stride -= branch_stride;
-            if (it->m_parent_ofs == 0)
+        // Special-case: root
+        if (parent_ofs == 0) {
+            nodes.erase(nodes.begin() + node_index,
+                nodes.begin() + node_index + branch_stride);
+            return true;
+        }
+
+        // Update branch_stride of ancestors
+        size_t parent_idx = node_index - parent_ofs;
+        for (size_t idx = parent_idx; ; idx -= nodes[idx].m_parent_ofs)
+        {
+            nodes[idx].m_branch_stride -= branch_stride;
+            if (nodes[idx].m_parent_ofs == 0)
                 break;
         }
 
-        // 2) Adjust parent_ofs of trailing nodes whose parent lies in erased branch
-        auto trail_it = nodes.begin() + node_index + branch_stride;
-        while (trail_it < nodes.end()) {
-            if (trail_it->m_parent_ofs == 0)
-                break;
-            auto dist = static_cast<unsigned>(std::distance(parent_it, trail_it));
-            if (trail_it->m_parent_ofs >= /*<=*/ dist)
-                trail_it->m_parent_ofs -= branch_stride;
-            ++trail_it;
+        // Update parent_ofs of in-range trailing nodes
+        for (size_t i = node_index + branch_stride; i < nodes.size(); ++i)
+        {
+            if (nodes[i].m_parent_ofs == 0) break;
+            auto dist = i - parent_idx;
+            if (nodes[i].m_parent_ofs >= dist)
+                nodes[i].m_parent_ofs -= branch_stride;
         }
 
-        // 3) Decrement parent children count and erase range
-        // const_cast<TreeNodeType&>(*parent_it).m_nbr_children--;
-        parent_it->m_nbr_children--;
-        nodes.erase(nodes.begin() + node_index,
+        // Decrement parent's child count and erase
+        nodes[parent_idx].m_nbr_children--;
+        nodes.erase(
+            nodes.begin() + node_index,
             nodes.begin() + node_index + branch_stride);
+
         return true;
     }
 
@@ -358,67 +361,7 @@ public:
         return erase_branch_at_index(node_index);
     }
 
-    // --- Progressive traversal ----------------------------------------------
-
-    /// @brief Traverse depth-first in a per-level manner
-    /// @param node_name Name of node to descend from
-    /// Useful for hierarchical transformations. The tree is optimized for this type of traversal.
-    /// F is a function of type void(PayloadType* node, PayloadType* parent, size_t node_index, size_t parent_index)
-    template<class F>
-        requires std::invocable<F, PayloadType*, PayloadType*, size_t, size_t>
-    void traverse_progressive(
-        size_t start_index,
-        const F& func)
-    {
-        //auto start_node_index = find_node_index(payload);
-        // assert(start_node_index != VecTree_NullIndex);
-        assert(start_index >= 0 && start_index < size());
-
-        for (int i = 0; i < nodes[start_index].m_branch_stride; i++)
-        {
-            auto node_index = start_index + i;
-            auto& node = nodes[node_index];
-
-            if (!node.m_parent_ofs)
-                func(&node.m_payload, nullptr, node_index, 0);
-
-            size_t child_index = node_index + 1;
-            for (int j = 0; j < node.m_nbr_children; j++)
-            {
-                func(&nodes[child_index].m_payload, &node.m_payload, child_index, node_index);
-                child_index += nodes[child_index].m_branch_stride;
-            }
-        }
-    }
-
-    template<class F>
-        requires std::invocable<F, PayloadType*, PayloadType*, size_t, size_t>
-    void traverse_progressive(
-        const PayloadType& payload,
-        const F& func)
-    {
-        auto index = find_node_index(payload);
-        assert(index != VecTree_NullIndex);
-        traverse_progressive(index, func);
-    }
-
-    template<class F>
-        requires std::invocable<F, PayloadType*, PayloadType*, size_t, size_t>
-    void traverse_progressive(
-        const F& func)
-    {
-        // if (size())
-        //     traverse_progressive(0, func);
-
-        size_t i = 0;
-        while (i < size())
-        {
-            traverse_progressive(i, func);
-            i += nodes[i].m_branch_stride;
-        }
-    }
-
-    // --- Depth-first without level information ----------------------------------
+    // --- Depth-first without level information (fast) -----------------------
 
 private:
     //–– by start‐index
@@ -434,8 +377,22 @@ private:
         assert(start_index != VecTree_NullIndex && start_index < nodes.size());
 
         size_t stride = nodes[start_index].m_branch_stride;
-        for (size_t offset = 0; offset < stride; ++offset) {
-            func(nodes[start_index + offset].m_payload, start_index + offset);
+        for (size_t offset = 0; offset < stride; ++offset)
+        {
+            size_t idx = start_index + offset;
+            auto& node = nodes[idx];
+
+            const size_t parent_idx =
+                node.m_parent_ofs ?
+                idx - node.m_parent_ofs
+                : VecTree_NullIndex;
+            auto parent_ptr =
+                parent_idx != VecTree_NullIndex ?
+                &nodes[parent_idx].m_payload
+                : nullptr;
+
+            func(&node.m_payload, parent_ptr, idx, parent_idx);
+            // func(nodes[start_index + offset].m_payload, start_index + offset);
         }
     }
 
@@ -472,12 +429,17 @@ private:
 
 public:
     /// @brief Traverse in depth-first order (const overload)
-    /// @tparam F Callable type, invocable as void(const PayloadType& payload, size_t).
+    /// @tparam F Callable type, 
+    ///         invocable as void(const PayloadType*, const PayloadType*, size_t, size_t).
     /// @param start_index Index of the node to start traversal from.
-    /// @param func Callable with signature void(const PayloadType& payload, size_t index).
+    /// @param func Callable with signature 
+    ///        void(const PayloadType* node, 
+    ///             const PayloadType* parent, 
+    ///             size_t node_index, 
+    ///             size_t parent_index).
     /// @note The tree is optimized for depth-first traversal.
     template<class F>
-        requires std::invocable<F, const PayloadType&, size_t>
+        requires std::invocable<F, const PayloadType*, const PayloadType*, size_t, size_t>
     void traverse_depthfirst(
         size_t start_index,
         F&& func) const
@@ -488,13 +450,18 @@ public:
             std::forward<F>(func));
     }
 
-    /// @brief Traverse in depth-first order
-    /// @tparam F Callable type, invocable as void(PayloadType& payload, size_t).
+    /// @brief Traverse in depth-first order (non-const overload)
+    /// @tparam F Callable type, 
+    ///         invocable as void(PayloadType*, PayloadType*, size_t, size_t).
     /// @param start_index Index of the node to start traversal from.
-    /// @param func Callable with signature void(PayloadType& payload, size_t index).
+    /// @param func Callable with signature 
+    ///        void(PayloadType* node, 
+    ///             PayloadType* parent, 
+    ///             size_t node_index, 
+    ///             size_t parent_index).
     /// @note The tree is optimized for depth-first traversal.
     template<class F>
-        requires std::invocable<F, PayloadType&, size_t>
+        requires std::invocable<F, PayloadType*, PayloadType*, size_t, size_t>
     void traverse_depthfirst(
         size_t start_index,
         F&& func)
@@ -506,12 +473,17 @@ public:
     }
 
     /// @brief Traverse in depth-first order (const overload)
-    /// @tparam F Callable type, invocable as void(const PayloadType& payload, size_t).
+    /// @tparam F Callable type, 
+    ///         invocable as void(const PayloadType*, const PayloadType*, size_t, size_t).
     /// @param start_payload Node to start traversal from.
-    /// @param func Callable with signature void(const PayloadType& payload, size_t index).
+    /// @param func Callable with signature 
+    ///        void(const PayloadType* node, 
+    ///             const PayloadType* parent, 
+    ///             size_t node_index, 
+    ///             size_t parent_index).
     /// @note The tree is optimized for depth-first traversal.
     template<class F>
-        requires std::invocable<F, const PayloadType&, size_t>
+        requires std::invocable<F, const PayloadType*, const PayloadType*, size_t, size_t>
     void traverse_depthfirst(
         const PayloadType& start_payload,
         F&& func) const
@@ -522,13 +494,18 @@ public:
             std::forward<F>(func));
     }
 
-    /// @brief Traverse in depth-first order
-    /// @tparam F Callable type, invocable as void(PayloadType& payload, size_t).
+    /// @brief Traverse in depth-first order (non-const overload)
+    /// @tparam F Callable type, 
+    ///         invocable as void(PayloadType*, PayloadType*, size_t, size_t).
     /// @param start_payload Node to start traversal from.
-    /// @param func Callable with signature void(PayloadType& payload, size_t index).
+    /// @param func Callable with signature 
+    ///        void(PayloadType* node, 
+    ///             PayloadType* parent, 
+    ///             size_t node_index, 
+    ///             size_t parent_index).
     /// @note The tree is optimized for depth-first traversal.
     template<class F>
-        requires std::invocable<F, PayloadType&, size_t>
+        requires std::invocable<F, PayloadType*, PayloadType*, size_t, size_t>
     void traverse_depthfirst(
         const PayloadType& start_payload,
         F&& func)
@@ -540,11 +517,16 @@ public:
     }
 
     /// @brief Traverse in depth-first order (const overload)
-    /// @tparam F Callable type, invocable as void(const PayloadType& payload, size_t).
-    /// @param func Callable with signature void(const PayloadType& payload, size_t index).
+    /// @tparam F Callable type, 
+    ///         invocable as void(const PayloadType*, const PayloadType*, size_t, size_t).
+    /// @param func Callable with signature 
+    ///        void(const PayloadType* node, 
+    ///             const PayloadType* parent, 
+    ///             size_t node_index, 
+    ///             size_t parent_index).
     /// @note The tree is optimized for depth-first traversal.
     template<class F>
-        requires std::invocable<F, const PayloadType&, size_t>
+        requires std::invocable<F, const PayloadType*, const PayloadType*, size_t, size_t>
     void traverse_depthfirst(
         F&& func) const
     {
@@ -553,12 +535,17 @@ public:
             std::forward<F>(func));
     }
 
-    /// @brief Traverse in depth-first order
-    /// @tparam F Callable type, invocable as void(PayloadType& payload, size_t).
-    /// @param func Callable with signature void(PayloadType& payload, size_t index).
+    /// @brief Traverse in depth-first order (non-const overload)
+    /// @tparam F Callable type, 
+    ///         invocable as void(const PayloadType*, const PayloadType*, size_t, size_t).
+    /// @param func Callable with signature 
+    ///        void(const PayloadType* node, 
+    ///             const PayloadType* parent, 
+    ///             size_t node_index, 
+    ///             size_t parent_index).
     /// @note The tree is optimized for depth-first traversal.
     template<class F>
-        requires std::invocable<F, PayloadType&, size_t>
+        requires std::invocable<F, PayloadType*, PayloadType*, size_t, size_t>
     void traverse_depthfirst(
         F&& func)
     {
@@ -567,7 +554,7 @@ public:
             std::forward<F>(func));
     }
 
-    // --- Depth-first with level information ---------------------------------
+    // --- Depth-first with level information (less fast) ---------------------
 
 private:
     //–– by start‐index

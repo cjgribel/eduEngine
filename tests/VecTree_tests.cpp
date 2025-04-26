@@ -65,9 +65,6 @@ namespace
         {"MultiRoot", {{"A","B"}, {"A","C"}}}
     };
 
-    // Progressive traversal follows same parent-before-child ordering as depth-first
-    const auto progressive_constraints = depthfirst_constraints;
-
     // Ascend traversal: child should appear before parent in upward walk
     const std::map<std::string, std::vector<std::pair<std::string, std::string>>> ascend_constraints = {
         {"SingleRoot", {}},
@@ -292,13 +289,13 @@ TEST(VecTreeTraversalTest, DepthFirstTraversal)
     for (const auto& [name, desc] : test_trees)
     {
         SCOPED_TRACE("Tree: " + name);
-        VecTree<std::string> tree = BuildTree(desc);
+        const VecTree<std::string> tree = BuildTree(desc);
         //PrintTree(name, tree);
 
         std::vector<std::string> order;
-        tree.traverse_depthfirst([&](std::string& payload, size_t idx)
+        tree.traverse_depthfirst([&](const std::string* payload, const std::string*, size_t, size_t)
             {
-                order.push_back(payload);
+                order.push_back(*payload);
             });
 
         std::set<std::string> expected;
@@ -344,31 +341,6 @@ TEST(VecTreeTraversalTest, BreadthFirstTraversal)
 }
 
 #if 0
-TEST(VecTreeTraversalTest, ProgressiveTraversal)
-{
-    for (const auto& [name, desc] : test_trees)
-    {
-        SCOPED_TRACE("Tree: " + name);
-        auto tree = BuildTree(desc);
-        //PrintTree(name, tree);
-
-        std::vector<std::string> order;
-        tree.traverse_progressive([&](std::string* node, std::string*, size_t, size_t)
-            {
-                if (node) order.push_back(*node);
-            });
-
-        std::set<std::string> actual(order.begin(), order.end());
-        std::set<std::string> expected;
-        for (auto& [n, _] : desc) expected.insert(n);
-        EXPECT_EQ(actual, expected);
-
-        if (progressive_constraints.contains(name)) {
-            VerifyOrder(order, progressive_constraints.at(name), name);
-        }
-    }
-}
-
 TEST(VecTreeTraversalTest, AscendTraversal)
 {
     VecTree<std::string> tree;

@@ -538,7 +538,7 @@ namespace eeng
                 }
             });
 
-            m_nodetree.traverse_depthfirst([&](SkeletonNode& node, size_t i, size_t level)
+        m_nodetree.traverse_depthfirst([&](SkeletonNode& node, size_t i, size_t level)
             {
                 m_nodehash[node.name] = i;
             });
@@ -1058,7 +1058,8 @@ namespace eeng
         }
 
         // Traverse the node tree and animate all nodes
-        m_nodetree.traverse_progressive(
+        //m_nodetree.traverse_progressive(
+        m_nodetree.traverse_depthfirst(
             [&](SkeletonNode* node, SkeletonNode* parent_node, size_t node_index, size_t parent_index)
             {
                 node->global_tfm = animateNode(node_index, anim, ntime);
@@ -1141,7 +1142,8 @@ namespace eeng
         }
 
         // Traverse the node tree and animate all nodes
-        m_nodetree.traverse_progressive(
+        //m_nodetree.traverse_progressive(
+        m_nodetree.traverse_depthfirst(
             [&](SkeletonNode* node, SkeletonNode* parent_node, size_t node_index, size_t parent_index)
             {
                 node->global_tfm = animateBlendNode(node_index, anim0, anim1, ntime0, ntime1, frac);
@@ -1149,6 +1151,14 @@ namespace eeng
                 if (parent_node)
                     node->global_tfm = parent_node->global_tfm * node->global_tfm;
             });
+        // m_nodetree.traverse_depthfirst(
+        //     [&](SkeletonNode* node, SkeletonNode* parent_node, size_t node_index, size_t parent_index)
+        //     {
+        //         node->global_tfm = animateBlendNode(node_index, anim0, anim1, ntime0, ntime1, frac);
+
+        //         if (parent_node)
+        //             node->global_tfm = parent_node->global_tfm * node->global_tfm;
+        //     });
 
         m_model_aabb.reset();
         for (int i = 0; i < m_bones.size(); i++)
