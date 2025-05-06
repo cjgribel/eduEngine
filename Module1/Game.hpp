@@ -109,6 +109,7 @@ private:
     // Placeholder animation state
     int characterAnimIndex = -1;
     float characterAnimSpeed = 1.0f;
+    float characterAnimBlend = 0.5f;
 
     // Stats
     int drawcallCount = 0;

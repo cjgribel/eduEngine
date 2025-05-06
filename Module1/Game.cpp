@@ -106,7 +106,7 @@ void Game::update(
 
     characterWorldMatrix3 = glm_aux::TRS(
         { 3, 0, 0 },
-        time * glm::radians(50.0f), { 0, 1, 0 },
+        time * glm::radians(50.0f) * 0, { 0, 1, 0 },
         { 0.03f, 0.03f, 0.03f });
 
     // Intersect player view ray with AABBs of other objects 
@@ -169,7 +169,8 @@ void Game::render(
     character_aabb2 = characterMesh->m_model_aabb.post_transform(characterWorldMatrix2);
 
     // Character, instance 3
-    characterMesh->animate(2, time * characterAnimSpeed);
+    // characterMesh->animate(2, time * characterAnimSpeed);
+    characterMesh->animateBlend(1, 2, time, time, characterAnimBlend);
     forwardRenderer->renderMesh(characterMesh, characterWorldMatrix3);
     character_aabb3 = characterMesh->m_model_aabb.post_transform(characterWorldMatrix3);
 
@@ -294,6 +295,8 @@ void Game::renderUI()
     }
 
     ImGui::SliderFloat("Animation speed", &characterAnimSpeed, 0.1f, 5.0f);
+
+    ImGui::SliderFloat("Animation mix", &characterAnimBlend, 0.0f, 1.0f);
 
     ImGui::End(); // end info window
 }
