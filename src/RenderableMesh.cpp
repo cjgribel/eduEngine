@@ -8,6 +8,7 @@
 
 #include "ShaderLoader.h"
 #include "parseutil.h"
+#include "Profiler.hpp"
 
 namespace eeng
 {
@@ -114,6 +115,7 @@ namespace eeng
 
     void RenderableMesh::load(const std::string& file, bool append_animations)
     {
+        std::cout << "Loading mesh: " << file << ", " << append_animations << std::endl;
         unsigned xiflags = (append_animations ? xi_load_animations : (xi_load_meshes | xi_load_animations));
 
         unsigned aiflags;
@@ -146,6 +148,8 @@ namespace eeng
         unsigned aiflags)
 
     {
+        util::Profiler::start("RenderableMesh::load");
+
         // Plan is to utilize xiflags with more detail
         bool append_animations = (xiflags == xi_load_animations);
 
@@ -180,7 +184,9 @@ namespace eeng
         log << priority(PRTVERBOSE) << "Format " << fileext << " supported: " << (ext_supported ? "YES" : "NO") << std::endl;
 
         // Load
+        util::Profiler::start("RenderableMesh::load", "Assimp load");
         const aiScene* aiscene = aiimporter.ReadFile(file, aiflags);
+        util::Profiler::stop("RenderableMesh::load", "Assimp load");
 
         if (!aiscene)
             throw std::runtime_error(aiimporter.GetErrorString());
@@ -196,6 +202,8 @@ namespace eeng
 
             loadAnimations(aiscene);
 
+            util::Profiler::stop("RenderableMesh::load");
+            util::Profiler::reset("RenderableMesh::load");
             log << priority(PRTSTRICT) << "Done appending animations.\n";
             return;
         }
@@ -203,23 +211,31 @@ namespace eeng
         glGenVertexArrays(1, &m_VAO);
         glBindVertexArray(m_VAO);
         glGenBuffers(numelem(m_Buffers), m_Buffers);
+
         loadScene(aiscene, filepath);
         glBindVertexArray(0);
 
+        util::Profiler::start("RenderableMesh::load", "nodes");
         loadNodes(aiscene->mRootNode);
+        util::Profiler::stop("RenderableMesh::load", "nodes");
 
         //m_nodetree.print_to_stream(logstreamer_t{ filepath + filename + "_nodetree.txt", PRTVERBOSE });
         dump_tree_to_stream(m_nodetree, logstreamer_t{ filepath + filename + "_nodetree.txt", PRTVERBOSE });
         // m_nodetree.debug_print({filepath + filename + "_nodetree.txt", PRTVERBOSE});
 
+        util::Profiler::start("RenderableMesh::load", "animations");
         loadAnimations(aiscene);
-
+        util::Profiler::stop("RenderableMesh::load", "animations");
 
         // Traverse the hierarchy.
         // Animated meshes must be traversed before each frame.
         animate(-1, 0.0f);
 
         mSceneAABB = measureScene(aiscene); // Only captures bind pose.
+
+        util::Profiler::stop("RenderableMesh::load");
+        util::Profiler::log("RenderableMesh::load");
+        util::Profiler::reset("RenderableMesh::load");
     }
 
     void RenderableMesh::removeTranslationKeys(const std::string& node_name)
@@ -253,6 +269,7 @@ namespace eeng
         log << "\t" << aiscene->mNumAnimations << " animations" << std::endl;
         log << "\t" << aiscene->mNumLights << " lights" << std::endl;
         log << "\t" << aiscene->mNumCameras << " cameras" << std::endl;
+        
         // Animations
         log << "Animations:\n";
         for (int i = 0; i < aiscene->mNumAnimations; i++)
@@ -330,7 +347,8 @@ namespace eeng
         log << "Scene total vertices " << scene_nbr_vertices << ", triangles " << scene_nbr_indices / 3 << std::endl;
         log << "Bone mapping contains " << m_bonehash.size() << " bones in total\n";
 
-#if 1
+        #if 1
+        util::Profiler::start("RenderableMesh::load", "AABBs");
         // Model & bone AABB's
         boneMatrices.resize(m_bones.size());
         m_bone_aabbs_bind.resize(m_bones.size()); // Constructor resets AABB
@@ -360,10 +378,11 @@ namespace eeng
                     m_mesh_aabbs_bind[i].grow(scene_positions[j]);
             }
         }
-
+        util::Profiler::stop("RenderableMesh::load", "AABBs");
 #endif
         loadMaterials(aiscene, filename);
 
+        util::Profiler::start("RenderableMesh::load", "load GL");
         // Load GL buffers
 #define POSITION_LOCATION 0
 #define TEXCOORD_LOCATION 1
@@ -410,6 +429,8 @@ namespace eeng
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(scene_indices[0]) * scene_indices.size(), &scene_indices[0], GL_STATIC_DRAW);
 
         CheckAndThrowGLErrors();
+        util::Profiler::stop("RenderableMesh::load", "load GL");
+
         return true;
     }
 
@@ -767,6 +788,7 @@ namespace eeng
         log << "Embedded textures: " << aiscene->mNumTextures << std::endl;
         log << priority(PRTVERBOSE);
 
+        util::Profiler::start("RenderableMesh::load", "textures");
         m_embedded_textures_ofs = (unsigned)m_textures.size();
         for (int i = 0; i < aiscene->mNumTextures; i++)
         {
@@ -798,6 +820,7 @@ namespace eeng
             m_textures.push_back(texture);
         }
         log << priority(PRTSTRICT) << "Loaded " << aiscene->mNumTextures << " embedded textures\n";
+        util::Profiler::stop("RenderableMesh::load", "textures");
 
         // Initialize the materials
         for (uint i = 0; i < aiscene->mNumMaterials; i++)
