@@ -431,11 +431,11 @@ namespace ShapeRendering {
             const glm::vec3& to,
             ArrowDescriptor arrow_desc);
 
-#if 0
         void push_sphere(float h, float r);
 
         void push_sphere_wireframe(float h, float r);
 
+#if 0
         void push_helix(const vec3f& from,
             const vec3f& to,
             float r_outer,
