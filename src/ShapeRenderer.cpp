@@ -464,8 +464,8 @@ namespace ShapeRendering {
         // Create default primitives
         create_cone(1, 1, 2, 8, unitcone_buffers.vertices, unitcone_buffers.indices);
         create_cylinder(1, 1, 2, 8, unitcylinder_buffers.vertices, unitcylinder_buffers.indices);
-        create_sphere(1, 8, 8, unitsphere_buffers.vertices, unitsphere_buffers.indices, false);
-        create_sphere(1, 8, 8, unitspherewireframe_buffers.vertices, unitspherewireframe_buffers.indices, true);
+        create_sphere(1, 12, 8, unitsphere_buffers.vertices, unitsphere_buffers.indices, false);
+        create_sphere(1, 12, 8, unitspherewireframe_buffers.vertices, unitspherewireframe_buffers.indices, true);
 
         // Default state
         push_states(BackfaceCull::True, DepthTest::True, Color4u::White, glm::mat4{ 1.0f });
@@ -989,23 +989,23 @@ namespace ShapeRendering {
         pop_states<glm::mat4>();
     }
 
-#if 0
+
     void ShapeRenderer::push_sphere(float h, float r)
     {
-        const auto [color, depth_test, cull_face, M] = get_states<Color4u, DepthTest, BackfaceCull, m4f>();
+        const auto [color, depth_test, cull_face, M] = get_states<Color4u, DepthTest, BackfaceCull, glm::mat4>();
         const auto vertex_ofs = polygon_vertices.size();
         const auto index_ofs = polygon_indices.size();
 
-        mat4f N = M * mat4f::scaling(r, h, r);
-        mat4f Nit;
+        auto N = M * glm_aux::S(glm::vec3{ r, h, r });
+        glm::mat4 Nit;
         if (h == r) Nit = N;
-        else { Nit = N.inverse(); Nit.transpose(); }
+        else { Nit = glm::transpose(glm::inverse(N)); }
 
         for (auto& v : unitsphere_buffers.vertices)
         {
-            vec3f vw = (N * (v.p.xyz1())).xyz();
-            vec3f nw = (Nit * (v.normal.xyz0())).xyz();
-            polygon_vertices.push_back({ vw, normalize(nw), color });
+            glm::vec3 vw = glm::vec3(N * glm::vec4(v.p, 1.0f));
+            glm::vec3 nw = glm::vec3(Nit * glm::vec4(v.normal, 0.0f));
+            polygon_vertices.push_back({ vw, glm::normalize(nw), color });
         }
 
         polygon_indices.insert(polygon_indices.end(),
@@ -1028,18 +1028,18 @@ namespace ShapeRendering {
 
     void ShapeRenderer::push_sphere_wireframe(float h, float r)
     {
-        const auto [color, depth_test, cull_face, M] = get_states<Color4u, DepthTest, BackfaceCull, m4f>();
+        const auto [color, depth_test, cull_face, M] = get_states<Color4u, DepthTest, BackfaceCull, glm::mat4>();
         const auto vertex_ofs = polygon_vertices.size();
         const auto index_ofs = polygon_indices.size();
 
-        mat4f N = M * mat4f::scaling(r, h, r);
-        mat4f Nit = N; // N.inverse(); Nit.transpose(); // ugly, only inv-transpose when needed
+        auto N = M * glm_aux::S(glm::vec3{ r, h, r });
+        //auto Nit = N; // N.inverse(); Nit.transpose(); // ugly, only inv-transpose when needed
 
         for (auto& v : unitspherewireframe_buffers.vertices)
         {
-            vec3f vw = (N * (v.p.xyz1())).xyz();
-            vec3f nw = (Nit * (v.normal.xyz0())).xyz();
-            polygon_vertices.push_back({ vw, normalize(nw), color });
+            glm::vec3 vw = glm::vec3(N * glm::vec4(v.p, 1.0f));
+            glm::vec3 nw = glm::vec3(N * glm::vec4(v.normal, 0.0f));
+            polygon_vertices.push_back({ vw, glm::normalize(nw), color });
         }
 
         polygon_indices.insert(polygon_indices.end(),
@@ -1060,6 +1060,7 @@ namespace ShapeRendering {
 #endif
     }
 
+#if 0
     void ShapeRenderer::push_helix(const vec3f& from,
         const vec3f& to,
         float r_outer,
@@ -1667,6 +1668,21 @@ namespace ShapeRendering {
             renderer->push_states(ShapeRendering::Color4u::Cyan);
             renderer->push_states(glm_aux::TS(glm::vec3(xpos += 2, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f)));
             renderer->push_circle_ring<8>();
+            renderer->pop_states<ShapeRendering::Color4u, glm::mat4>();
+        }
+
+        // Sphere
+        {
+            renderer->push_states(ShapeRendering::Color4u::Purple);
+            renderer->push_states(glm_aux::TS(glm::vec3(xpos += 2, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f)));
+            renderer->push_sphere(1.0f, 1.0f);
+            renderer->pop_states<ShapeRendering::Color4u, glm::mat4>();
+        }
+        // Sphere wireframe
+        {
+            renderer->push_states(ShapeRendering::Color4u::Purple);
+            renderer->push_states(glm_aux::TS(glm::vec3(xpos += 2, 1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f)));
+            renderer->push_sphere_wireframe(1.0f, 1.0f);
             renderer->pop_states<ShapeRendering::Color4u, glm::mat4>();
         }
     }
