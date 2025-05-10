@@ -1,6 +1,10 @@
 // Created by Carl Johan Gribel.
 // Licensed under the MIT License. See LICENSE file for details.
 
+#define STBI_MSC_SECURE_CRT                 // Avoid warnings in MSVC about unsafe functions
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 #include "RenderableMesh.hpp"
 
 #include <glm/gtx/dual_quaternion.hpp>
@@ -781,7 +785,15 @@ namespace eeng
     // bool SkinnedMesh::InitMaterials(const aiScene* pScene, const string& Filename)
     void RenderableMesh::loadMaterials(const aiScene* aiscene, const std::string& file)
     {
-        std::string local_filepath = get_parentdir(file);
+        // 'file': PATH to the model
+        std::string local_filepath = get_parentdir(file); // unnecessary
+
+        auto meta_path = paths::get_or_create_meta_path(file);
+
+        // tmp
+        // LOG(logstream, "Meta path: " << meta_path);
+        // LOG(logstream, "'file': " << file);
+        // LOG(logstream, "local_filepath: " << local_filepath);
 
         LOG(logstream, "Loading materials...");
         LOG(logstream, "\tNum materials " << aiscene->mNumMaterials);
@@ -800,10 +812,12 @@ namespace eeng
             aiTexture* aitexture = aiscene->mTextures[i];
             std::string filename = get_filename(aitexture->mFilename.C_Str());
             // std::string filename = std::to_string(i);
+            auto export_path = meta_path / filename;
 
             Texture2D texture;
             if (aitexture->mHeight)
             {
+                // REM
                 // Raw embedded image data
                 texture.load_image(filename,
                     (unsigned char*)aitexture->pcData,
@@ -811,14 +825,42 @@ namespace eeng
                     aitexture->mHeight,
                     4);
                 LOG(logstream, "Loaded uncompressed embedded texture " << texture);
+
+                // NEW
+                assert(0 && "Uncompressed embedded texture pending - not tested");
+                if (!std::filesystem::exists(export_path))
+                {
+                    stbi_write_png(export_path.c_str(),
+                                   aitexture->mWidth,
+                                   aitexture->mHeight,
+                                   4,
+                                   aitexture->pcData,
+                                   aitexture->mWidth * sizeof(aiTexel));
+                    LOG(logstream, "Exported uncompressed embedded texture " << texture);
+                }
+                else
+                    LOG(logstream, "Found exported embedded texture " << texture);
             }
             else
             {
+                // REM
                 // Compressed embedded image data
                 texture.load_from_memory(filename,
                     (unsigned char*)aitexture->pcData,
                     sizeof(aiTexel) * (aitexture->mWidth));
                 LOG(logstream, "Loaded compressed embedded texture " << texture);
+
+                // NEW
+                // Compressed embedded image - export to file directly
+                if (!std::filesystem::exists(export_path))
+                {
+                    auto myfile = std::fstream(export_path, std::ios::out | std::ios::binary);
+                    myfile.write((char*)aitexture->pcData, aitexture->mWidth);
+                    myfile.close();
+                    LOG(logstream, "Exporting compressed embedded texture " << texture);
+                }
+                else
+                    LOG(logstream, "Found exported embedded texture " << texture);
             }
 
             m_texturehash[filename] = (unsigned)m_textures.size();
@@ -835,7 +877,7 @@ namespace eeng
 
             aiString mtlname;
             pMaterial->Get(AI_MATKEY_NAME, mtlname);
-            
+
             LOG(logstream, "Loading material '" << mtlname.C_Str() << "', index " << i);
             LOG_VERBOSE(logstream, "Available textures:\n"
                 << "\tNone " << pMaterial->GetTextureCount(aiTextureType_NONE) << "\n"

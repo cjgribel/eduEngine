@@ -203,15 +203,11 @@ add_executable(Module1
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util/Profiler.cpp
     )
 
-set_target_properties(Module1 PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Module1"
-)
+set_target_properties(Module1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Module1")
 target_link_libraries(Module1 PRIVATE SDL2 assimp libglew_static glm::glm ${OPENGL_LIBRARIES})
-#target_include_directories(Module1 PRIVATE ${imgui_SOURCE_DIR})
-#target_include_directories(Module1 PRIVATE ${imgui_SOURCE_DIR}/backends)
 
 target_compile_definitions(Module1 PRIVATE META_OUTPUT_DIR="${CMAKE_BINARY_DIR}/Module1/meta")
-target_compile_definitions(Module1 PRIVATE VERBOSE_LOGGING)
+# target_compile_definitions(Module1 PRIVATE VERBOSE_LOGGING)
 
 # Post-build commands
 add_custom_command(TARGET Module1 POST_BUILD
