@@ -18,11 +18,9 @@
 #include "AABB.h"
 #include "Texture.hpp"
 #include "VecTree.h"
-#include "logstreamer.h"
 
 namespace eeng
 {
-    using namespace logstreamer;
     using uint = uint32_t;
 
     const int BonesPerVertex = 4;
@@ -189,7 +187,7 @@ namespace eeng
         index_hash_t m_nodehash;
 
         // Log & debug stuff
-        logstreamer_t log;
+        // logstreamer_t log;
         std::ostringstream logstream;
 
     public:
