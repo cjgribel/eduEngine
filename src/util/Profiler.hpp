@@ -119,3 +119,8 @@ private:
 
 } // namespace util
 } // namespace eeng
+
+#define START_TIMER(...)   ::eeng::util::Profiler::start(__VA_ARGS__)
+#define STOP_TIMER(...)    ::eeng::util::Profiler::stop(__VA_ARGS__)
+#define LOG_TIMER(...)     ::eeng::util::Profiler::log(__VA_ARGS__)
+#define RESET_TIMER(...)   ::eeng::util::Profiler::reset(__VA_ARGS__)
