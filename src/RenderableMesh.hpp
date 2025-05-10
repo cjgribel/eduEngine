@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <sstream>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -189,6 +190,7 @@ namespace eeng
 
         // Log & debug stuff
         logstreamer_t log;
+        std::ostringstream logstream;
 
     public:
         AABB mSceneAABB;
@@ -312,6 +314,8 @@ namespace eeng
         void measureMesh(const aiMesh* pMesh,
             const glm::mat4& transform,
             AABB& aabb);
+
+        void write_log_to_meta(const std::string& file);
     };
 
 } /* namespace eeng */

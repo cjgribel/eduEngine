@@ -9,6 +9,14 @@
 #include "ShaderLoader.h"
 #include "parseutil.h"
 #include "Profiler.hpp"
+#include "paths.h"
+
+#define LOG(oss, ...) [&](){ std::ostringstream _t; _t<<__VA_ARGS__; (oss)<<_t.str()<<"\n"; }()
+#ifdef VERBOSE_LOGGING
+#define LOG_VERBOSE(oss, ...) [&](){ std::ostringstream _t; _t<<__VA_ARGS__; (oss)<<_t.str()<<"\n"; }()
+#else
+#define LOG_VERBOSE(oss, ...) (void)0
+#endif
 
 namespace eeng
 {
@@ -68,9 +76,10 @@ namespace eeng
             return transformMatrix;
         }
 
+        template<class S>
         void dump_tree_to_stream(
             const VecTree<SkeletonNode>& tree,
-            logstreamer_t&& outstream)
+            S& outstream)
         {
             tree.traverse_depthfirst([&](const SkeletonNode& node, size_t index, size_t level)
                 {
@@ -148,7 +157,8 @@ namespace eeng
         unsigned aiflags)
 
     {
-        util::Profiler::start("RenderableMesh::load");
+        logstream.clear(); logstream.str("");
+        START_TIMER("RenderableMesh::load");
 
         // Plan is to utilize xiflags with more detail
         bool append_animations = (xiflags == xi_load_animations);
@@ -162,34 +172,46 @@ namespace eeng
         Assimp::Importer aiimporter;
 
         // Prepare the logs
+        // /*  */ std::ostringstream oss;
         if (!append_animations)
         {
             // log.add_ostream(std::cout, STRICT);
             log.add_ofstream(filepath + filename + "_log.txt", PRTVERBOSE);
+            // log.add_ostream(oss, PRTSTRICT);
         }
 
         // Log misc stuff
+        LOG(logstream, "Assimp version: "
+            << aiGetVersionMajor() << "."
+            << aiGetVersionMinor() << "."
+            << aiGetVersionRevision() << std::endl
+            << "Assimp about to open file: "
+            << file);
+
         log << priority(PRTSTRICT) << "Assimp version: "
             << aiGetVersionMajor() << "."
             << aiGetVersionMinor() << "."
             << aiGetVersionRevision() << std::endl;
-        log << priority(PRTSTRICT) << "Assimp about to open file:\n"
-            << file << std::endl;
+        log << priority(PRTSTRICT) << "Assimp about to open file: " << file << std::endl;
         // File support
         aiString supported_list;
         aiimporter.GetExtensionList(supported_list);
+        bool ext_supported = aiimporter.IsExtensionSupported(fileext);
+        LOG_VERBOSE(logstream, "Assimp supported formats: "
+            << supported_list.C_Str());
+        LOG_VERBOSE(logstream, "Format " << fileext << " supported: " << (ext_supported ? "YES" : "NO"));
         log << priority(PRTVERBOSE) << "Assimp supported formats: \n"
             << supported_list.C_Str() << std::endl;
-        bool ext_supported = aiimporter.IsExtensionSupported(fileext);
         log << priority(PRTVERBOSE) << "Format " << fileext << " supported: " << (ext_supported ? "YES" : "NO") << std::endl;
 
         // Load
-        util::Profiler::start("RenderableMesh::load", "Assimp load");
+        START_TIMER("RenderableMesh::load", "Assimp load");
         const aiScene* aiscene = aiimporter.ReadFile(file, aiflags);
-        util::Profiler::stop("RenderableMesh::load", "Assimp load");
+        STOP_TIMER("RenderableMesh::load", "Assimp load");
 
         if (!aiscene)
             throw std::runtime_error(aiimporter.GetErrorString());
+        LOG(logstream, "Assimp load OK");
         log << priority(PRTSTRICT) << "Assimp load OK\n";
 
         // Load animations to a previously loaded model
@@ -200,42 +222,75 @@ namespace eeng
             if (!m_meshes.size())
                 throw std::runtime_error("Cannot append animations to an empty model\n");
 
+            LOG(logstream, "Appending animations to existing model...");
+            util::Profiler::start("RenderableMesh::load", "animations");
+
             loadAnimations(aiscene);
 
-            util::Profiler::stop("RenderableMesh::load");
-            util::Profiler::reset("RenderableMesh::load");
+            //util::Profiler::stop("RenderableMesh::load", "animations");
+            LOG(logstream, "Animations appended OK\n");
+
+            // util::Profiler::stop("RenderableMesh::load");
+            // util::Profiler::reset("RenderableMesh::load");
             log << priority(PRTSTRICT) << "Done appending animations.\n";
-            return;
+            // return;
+        }
+        else
+        {
+            glGenVertexArrays(1, &m_VAO);
+            glBindVertexArray(m_VAO);
+            glGenBuffers(numelem(m_Buffers), m_Buffers);
+
+            LOG(logstream, "--- SCENE ----------------------------------------------------------------------");
+            loadScene(aiscene, filepath);
+            glBindVertexArray(0);
+
+            START_TIMER("RenderableMesh::load", "nodes");
+            loadNodes(aiscene->mRootNode);
+            STOP_TIMER("RenderableMesh::load", "nodes");
+
+            LOG(logstream, "--- NODE TREE ------------------------------------------------------------------");
+            dump_tree_to_stream(m_nodetree, logstream);
+            // dump_tree_to_stream(m_nodetree, logstreamer_t{ filepath + filename + "_nodetree.txt", PRTVERBOSE });
+
+            START_TIMER("RenderableMesh::load", "animations");
+            loadAnimations(aiscene);
+            STOP_TIMER("RenderableMesh::load", "animations");
+
+            // Traverse the hierarchy.
+            // Animated meshes must be traversed before each frame.
+            animate(-1, 0.0f);
+
+            mSceneAABB = measureScene(aiscene); // Only captures bind pose.
         }
 
-        glGenVertexArrays(1, &m_VAO);
-        glBindVertexArray(m_VAO);
-        glGenBuffers(numelem(m_Buffers), m_Buffers);
+        STOP_TIMER("RenderableMesh::load");
+        LOG(logstream, "--- TIMINGS --------------------------------------------------------------------");
+        LOG_TIMER("RenderableMesh::load", logstream);
+        // log << priority(PRTSTRICT) << "Timings:\n\n"; // rem
+        // util::Profiler::log("RenderableMesh::load", oss); // rem
+        RESET_TIMER("RenderableMesh::load");
 
-        loadScene(aiscene, filepath);
-        glBindVertexArray(0);
+        // std::cout << "Profiler log:\n" << oss.str() << std::endl;
+        // auto exe_path = paths::get_executable_path();
+        // auto exe_dir = paths::get_executable_directory();
+        // auto meta_dir = paths::get_meta_output_directory();
+        // std::cout << "Executable path: " << exe_path << std::endl;
+        // std::cout << "Executable directory: " << exe_dir << std::endl;
+        // std::cout << "Meta directory: " << meta_dir << std::endl;
 
-        util::Profiler::start("RenderableMesh::load", "nodes");
-        loadNodes(aiscene->mRootNode);
-        util::Profiler::stop("RenderableMesh::load", "nodes");
+        //
+        // LOG(oss, "Executable path: " << exe_path);
+        // LOG_VERBOSE(oss, "Assimp version: "
+        //     << aiGetVersionMajor() << "."
+        //     << aiGetVersionMinor() << "."
+        //     << aiGetVersionRevision());
 
-        //m_nodetree.print_to_stream(logstreamer_t{ filepath + filename + "_nodetree.txt", PRTVERBOSE });
-        dump_tree_to_stream(m_nodetree, logstreamer_t{ filepath + filename + "_nodetree.txt", PRTVERBOSE });
-        // m_nodetree.debug_print({filepath + filename + "_nodetree.txt", PRTVERBOSE});
+        //std::cout << "Profiler log:\n" << oss.str() << std::endl;
 
-        util::Profiler::start("RenderableMesh::load", "animations");
-        loadAnimations(aiscene);
-        util::Profiler::stop("RenderableMesh::load", "animations");
+        write_log_to_meta(filepath + filename + ".txt");
 
-        // Traverse the hierarchy.
-        // Animated meshes must be traversed before each frame.
-        animate(-1, 0.0f);
-
-        mSceneAABB = measureScene(aiscene); // Only captures bind pose.
-
-        util::Profiler::stop("RenderableMesh::load");
-        util::Profiler::log("RenderableMesh::load");
-        util::Profiler::reset("RenderableMesh::load");
+        // Todo: destructor of log not called until program this instance is destroyed
     }
 
     void RenderableMesh::removeTranslationKeys(const std::string& node_name)
@@ -262,6 +317,13 @@ namespace eeng
         unsigned scene_nbr_indices = 0;
 
         // Print some debug info
+        LOG(logstream, "Scene overview" << std::endl
+            << "\t" << scene_nbr_meshes << " meshes" << std::endl
+            << "\t" << scene_nbr_mtl << " materials" << std::endl
+            << "\t" << aiscene->mNumTextures << " embedded textures" << std::endl
+            << "\t" << aiscene->mNumAnimations << " animations" << std::endl
+            << "\t" << aiscene->mNumLights << " lights" << std::endl
+            << "\t" << aiscene->mNumCameras << " cameras");
         log << priority(PRTSTRICT) << "Scene overview" << std::endl;
         log << "\t" << scene_nbr_meshes << " meshes" << std::endl;
         log << "\t" << scene_nbr_mtl << " materials" << std::endl;
@@ -269,7 +331,8 @@ namespace eeng
         log << "\t" << aiscene->mNumAnimations << " animations" << std::endl;
         log << "\t" << aiscene->mNumLights << " lights" << std::endl;
         log << "\t" << aiscene->mNumCameras << " cameras" << std::endl;
-        
+
+
         // Animations
         log << "Animations:\n";
         for (int i = 0; i < aiscene->mNumAnimations; i++)
@@ -343,12 +406,15 @@ namespace eeng
                 scene_indices);
         }
 
+        LOG(logstream, "Scene total vertices "
+            << scene_nbr_vertices << ", triangles " << scene_nbr_indices / 3 << std::endl
+            << "Bone mapping contains " << m_bonehash.size() << " bones in total");
         log << priority(PRTSTRICT);
         log << "Scene total vertices " << scene_nbr_vertices << ", triangles " << scene_nbr_indices / 3 << std::endl;
         log << "Bone mapping contains " << m_bonehash.size() << " bones in total\n";
 
-        #if 1
-        util::Profiler::start("RenderableMesh::load", "AABBs");
+#if 1
+        START_TIMER("RenderableMesh::load", "AABBs");
         // Model & bone AABB's
         boneMatrices.resize(m_bones.size());
         m_bone_aabbs_bind.resize(m_bones.size()); // Constructor resets AABB
@@ -378,11 +444,11 @@ namespace eeng
                     m_mesh_aabbs_bind[i].grow(scene_positions[j]);
             }
         }
-        util::Profiler::stop("RenderableMesh::load", "AABBs");
+        STOP_TIMER("RenderableMesh::load", "AABBs");
 #endif
         loadMaterials(aiscene, filename);
 
-        util::Profiler::start("RenderableMesh::load", "load GL");
+        START_TIMER("RenderableMesh::load", "load GL");
         // Load GL buffers
 #define POSITION_LOCATION 0
 #define TEXCOORD_LOCATION 1
@@ -429,7 +495,7 @@ namespace eeng
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(scene_indices[0]) * scene_indices.size(), &scene_indices[0], GL_STATIC_DRAW);
 
         CheckAndThrowGLErrors();
-        util::Profiler::stop("RenderableMesh::load", "load GL");
+        STOP_TIMER("RenderableMesh::load", "load GL");
 
         return true;
     }
@@ -444,12 +510,21 @@ namespace eeng
         std::vector<SkinData>& scene_skindata,
         std::vector<unsigned int>& scene_indices)
     {
+        LOG_VERBOSE(logstream,
+            "Loading mesh " << aimesh->mName.C_Str() << std::endl
+            << "\t" << aimesh->mNumVertices << " vertices" << std::endl
+            << "\t" << aimesh->mNumFaces << " faces" << std::endl
+            << "\t" << aimesh->mNumBones << " bones" << std::endl
+            << "\t" << aimesh->mNumAnimMeshes << " anim-meshes*" << std::endl
+            // std::cout << "\t" << paiMesh->mNumUVComponents << " UV components" << std::endl;
+            << "\thas tangents and bitangents: " << (aimesh->HasTangentsAndBitangents() ? "YES" : "NO") << std::endl
+            << "\thas vertex colors: " << (aimesh->HasVertexColors(0) ? "YES" : "NO"));
         log << priority(PRTVERBOSE);
         log << "Loading mesh " << aimesh->mName.C_Str() << std::endl;
         log << "\t" << aimesh->mNumVertices << " vertices" << std::endl;
         log << "\t" << aimesh->mNumFaces << " faces" << std::endl;
         log << "\t" << aimesh->mNumBones << " bones" << std::endl;
-        log << "\t" << aimesh->mNumAnimMeshes << " anim-meshes*" << std::endl;
+        log << "\t" << aimesh->mNumAnimMeshes << " anim-meshes (not supported)" << std::endl;
         // std::cout << "\t" << paiMesh->mNumUVComponents << " UV components" << std::endl;
         log << "\thas tangents and bitangents: " << (aimesh->HasTangentsAndBitangents() ? "YES" : "NO") << std::endl;
         log << "\thas vertex colors: " << (aimesh->HasVertexColors(0) ? "YES" : "NO") << std::endl;
@@ -626,6 +701,7 @@ namespace eeng
         const aiMesh* aimesh,
         std::vector<SkinData>& scene_skindata)
     {
+        LOG_VERBOSE(logstream, aimesh->mNumBones << " bones (nbr weights):");
         log << priority(PRTVERBOSE) << aimesh->mNumBones << " bones (nbr weights):\n";
 
         for (uint i = 0; i < aimesh->mNumBones; i++)
@@ -634,6 +710,7 @@ namespace eeng
 
             std::string bone_name(aimesh->mBones[i]->mName.C_Str());
 
+            LOG_VERBOSE(logstream, "\t" << bone_name << " (" << aimesh->mBones[i]->mNumWeights << ")");
             log << "\t" << bone_name << " (" << aimesh->mBones[i]->mNumWeights << ")\n";
 
             // Checks if bone is not yet created
@@ -709,6 +786,7 @@ namespace eeng
         {
             textureIndex = m_embedded_textures_ofs + embedded_texture_index;
             log << priority(PRTSTRICT) << "\tUsing indexed embedded texture: " << embedded_texture_index << std::endl;
+            LOG(logstream, "Using indexed embedded texture: " << embedded_texture_index);
         }
         // Texture is a separate file
         else
@@ -724,6 +802,8 @@ namespace eeng
 
             log << priority(PRTVERBOSE) << "\traw path: " << textureRelPath << std::endl;
             log << priority(PRTVERBOSE) << "\tlocal file: " << textureAbsPath << std::endl;
+            LOG(logstream, "raw path: " << textureRelPath);
+            LOG(logstream, "local file: " << textureAbsPath);
 
             // Look for non-embedded textures (filepath + filename)
             auto tex_it = m_texturehash.find(textureRelPath);
@@ -739,6 +819,7 @@ namespace eeng
                 Texture2D texture;
                 texture.load_from_file(textureFilename, textureAbsPath);
                 log << priority(PRTSTRICT) << "Loaded texture " << texture << std::endl;
+                LOG(logstream, "Loaded texture " << texture);
                 textureIndex = (unsigned)m_textures.size();
                 m_textures.push_back(texture);
                 m_texturehash[textureRelPath] = textureIndex;
@@ -780,6 +861,9 @@ namespace eeng
         log << priority(PRTSTRICT) << "Loading materials...\n";
         log << "\tNum materials " << aiscene->mNumMaterials << std::endl;
         log << "\tParent dir: " << local_filepath << std::endl;
+        LOG(logstream, "Loading materials...");
+        LOG(logstream, "\tNum materials " << aiscene->mNumMaterials);
+        LOG(logstream, "\tParent dir: " << local_filepath);
 
         // Load embedded textures to texture array, using plain indices as
         // hash strings. If any regular texture is named e.g. '1', without an
@@ -787,8 +871,9 @@ namespace eeng
         // name hash.
         log << "Embedded textures: " << aiscene->mNumTextures << std::endl;
         log << priority(PRTVERBOSE);
+        LOG(logstream, "Embedded textures: " << aiscene->mNumTextures);
 
-        util::Profiler::start("RenderableMesh::load", "textures");
+        START_TIMER("RenderableMesh::load", "textures");
         m_embedded_textures_ofs = (unsigned)m_textures.size();
         for (int i = 0; i < aiscene->mNumTextures; i++)
         {
@@ -806,6 +891,7 @@ namespace eeng
                     aitexture->mHeight,
                     4);
                 log << priority(PRTSTRICT) << "Loaded uncompressed embedded texture " << texture << std::endl;
+                LOG(logstream, "Loaded uncompressed embedded texture " << texture);
             }
             else
             {
@@ -814,13 +900,15 @@ namespace eeng
                     (unsigned char*)aitexture->pcData,
                     sizeof(aiTexel) * (aitexture->mWidth));
                 log << priority(PRTSTRICT) << "Loaded compressed embedded texture " << texture << std::endl;
+                LOG(logstream, "Loaded compressed embedded texture " << texture);
             }
 
             m_texturehash[filename] = (unsigned)m_textures.size();
             m_textures.push_back(texture);
         }
         log << priority(PRTSTRICT) << "Loaded " << aiscene->mNumTextures << " embedded textures\n";
-        util::Profiler::stop("RenderableMesh::load", "textures");
+        LOG(logstream, "Loaded " << aiscene->mNumTextures << " embedded textures");
+        STOP_TIMER("RenderableMesh::load", "textures");
 
         // Initialize the materials
         for (uint i = 0; i < aiscene->mNumMaterials; i++)
@@ -854,6 +942,28 @@ namespace eeng
             log << "\tAO " << pMaterial->GetTextureCount(aiTextureType_AMBIENT_OCCLUSION) << std::endl;
             log << "\tUnknown " << pMaterial->GetTextureCount(aiTextureType_UNKNOWN) << std::endl;
 
+            LOG(logstream, "Loading material '" << mtlname.C_Str() << "', index " << i);
+            LOG_VERBOSE(logstream, "Available textures:\n"
+                << "\tNone " << pMaterial->GetTextureCount(aiTextureType_NONE) << "\n"
+                << "\tdiffuse " << pMaterial->GetTextureCount(aiTextureType_DIFFUSE) << "\n"
+                << "\tSpecular " << pMaterial->GetTextureCount(aiTextureType_SPECULAR) << "\n"
+                << "\tAmbient " << pMaterial->GetTextureCount(aiTextureType_AMBIENT) << "\n"
+                << "\tEmissive " << pMaterial->GetTextureCount(aiTextureType_EMISSIVE) << "\n"
+                << "\tHeight " << pMaterial->GetTextureCount(aiTextureType_HEIGHT) << "\n"
+                << "\tNormals " << pMaterial->GetTextureCount(aiTextureType_NORMALS) << "\n"
+                << "\tShininess " << pMaterial->GetTextureCount(aiTextureType_SHININESS) << "\n"
+                << "\tOpacity " << pMaterial->GetTextureCount(aiTextureType_OPACITY) << "\n"
+                << "\tDisplacement " << pMaterial->GetTextureCount(aiTextureType_DISPLACEMENT) << "\n"
+                << "\tLightmap " << pMaterial->GetTextureCount(aiTextureType_LIGHTMAP) << "\n"
+                << "\tReflection " << pMaterial->GetTextureCount(aiTextureType_REFLECTION) << "\n"
+                << "\tBase color " << pMaterial->GetTextureCount(aiTextureType_BASE_COLOR) << "\n"
+                << "\tNormal camera " << pMaterial->GetTextureCount(aiTextureType_NORMAL_CAMERA) << "\n"
+                << "\tEmission color " << pMaterial->GetTextureCount(aiTextureType_EMISSION_COLOR) << "\n"
+                << "\tMetalness " << pMaterial->GetTextureCount(aiTextureType_METALNESS) << "\n"
+                << "\tDiffuse roughness " << pMaterial->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) << "\n"
+                << "\tAO " << pMaterial->GetTextureCount(aiTextureType_AMBIENT_OCCLUSION) << "\n"
+                << "\tUnknown " << pMaterial->GetTextureCount(aiTextureType_UNKNOWN));
+
             // Fetch common color attributes
             aiColor3D aic;
             if (AI_SUCCESS == pMaterial->Get(AI_MATKEY_COLOR_AMBIENT, aic))
@@ -866,6 +976,7 @@ namespace eeng
 
             // Fetch common textures
             log << "Loading textures..." << std::endl;
+            LOG(logstream, "Loading textures...");
             using TextureType = PhongMaterial::TextureTypeIndex;
             mtl.textureIndices[TextureType::Diffuse] = loadTexture(pMaterial, aiTextureType_DIFFUSE, local_filepath);
             mtl.textureIndices[TextureType::Normal] = loadTexture(pMaterial, aiTextureType_NORMALS, local_filepath);
@@ -877,22 +988,30 @@ namespace eeng
                 mtl.textureIndices[TextureType::Normal] = loadTexture(pMaterial, aiTextureType_HEIGHT, local_filepath);
 
             log << "Done loading textures" << std::endl;
+            LOG(logstream, "Done loading textures");
 
             m_materials[i] = mtl;
         }
         log << "Done loading materials" << std::endl;
+        LOG(logstream, "Done loading materials");
 
         log << priority(PRTSTRICT) << "Num materials " << m_materials.size() << std::endl;
+        LOG(logstream, "Num materials " << m_materials.size());
 
         log << priority(PRTSTRICT) << "Num textures " << m_textures.size() << std::endl;
+        LOG(logstream, "Num textures " << m_textures.size());
         log << priority(PRTVERBOSE);
         for (auto& t : m_textures)
+        {
             log << "\t" << t.m_name << std::endl;
+            LOG(logstream, "\t" << t.m_name);
+        }
     }
 
     void RenderableMesh::loadAnimations(const aiScene* scene)
     {
         log << priority(PRTSTRICT) << "Loading animations..." << std::endl;
+        LOG(logstream, "Loading animations...");
 
         for (int i = 0; i < scene->mNumAnimations; i++)
         {
@@ -910,6 +1029,10 @@ namespace eeng
                 << ", tps " << anim.tps
                 << ", nbr channels " << aianim->mNumChannels
                 << std::endl;
+            LOG(logstream, "Loading animation '" << anim.name
+                << "', dur in ticks " << anim.duration_ticks
+                << ", tps " << anim.tps
+                << ", nbr channels " << aianim->mNumChannels);
 
             for (int j = 0; j < aianim->mNumChannels; j++)
             {
@@ -924,6 +1047,10 @@ namespace eeng
                     << ", nbr scale keys  " << ainode_anim->mNumScalingKeys
                     << ", nbr rot keys  " << ainode_anim->mNumRotationKeys
                     << std::endl;
+                LOG_VERBOSE(logstream, "\tLoading channel " << name
+                    << ", nbr pos keys  " << ainode_anim->mNumPositionKeys
+                    << ", nbr scale keys  " << ainode_anim->mNumScalingKeys
+                    << ", nbr rot keys  " << ainode_anim->mNumRotationKeys);
 
                 for (int k = 0; k < ainode_anim->mNumPositionKeys; k++)
                 {
@@ -950,6 +1077,7 @@ namespace eeng
         }
 
         log << priority(PRTSTRICT) << "Animations in total " << m_animations.size() << std::endl;
+        LOG(logstream, "Animations in total " << m_animations.size());
     }
 
     glm::mat4 RenderableMesh::animateNode(
@@ -1246,6 +1374,12 @@ namespace eeng
             glDeleteVertexArrays(1, &m_VAO);
             m_VAO = 0;
         }
+    }
+
+    void RenderableMesh::write_log_to_meta(const std::string& filename)
+    {
+        if (!paths::write_to_meta(filename, logstream.str()))
+            std::cerr << "Failed to write log to file: " << filename << std::endl;
     }
 
 } // namespace eeng
