@@ -31,6 +31,7 @@ endif()
 
 # 'target_include_directories' if target specific
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/util)
 
 #
 # OpenGL
@@ -199,6 +200,7 @@ add_executable(Module1
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ForwardRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ShapeRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Log.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/util/Profiler.cpp
     )
 
 set_target_properties(Module1 PROPERTIES
@@ -207,6 +209,9 @@ set_target_properties(Module1 PROPERTIES
 target_link_libraries(Module1 PRIVATE SDL2 assimp libglew_static glm::glm ${OPENGL_LIBRARIES})
 #target_include_directories(Module1 PRIVATE ${imgui_SOURCE_DIR})
 #target_include_directories(Module1 PRIVATE ${imgui_SOURCE_DIR}/backends)
+
+target_compile_definitions(Module1 PRIVATE META_OUTPUT_DIR="${CMAKE_BINARY_DIR}/Module1/meta")
+target_compile_definitions(Module1 PRIVATE VERBOSE_LOGGING)
 
 # Post-build commands
 add_custom_command(TARGET Module1 POST_BUILD
@@ -221,6 +226,7 @@ add_custom_command(TARGET Module1 POST_BUILD
 )
 message(STATUS "Post-build commands to copy SDL2 and Assimp DLLs to Module1 folder")
 
+# Set the working directory for the Visual Studio debugger
 if(CMAKE_GENERATOR MATCHES "Visual Studio")
     set_property(TARGET Module1 PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
     message(STATUS "Set Visual Studio debugger working directory")
@@ -228,6 +234,7 @@ endif()
 
 # Module2 ...
 
+# Set the startup project for Visual Studio
 if(CMAKE_GENERATOR MATCHES "Visual Studio")
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Module1)
     message(STATUS "Set Visual Studio startup project to Module1")
