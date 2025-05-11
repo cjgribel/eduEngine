@@ -857,7 +857,7 @@ namespace eeng
                     auto myfile = std::fstream(export_path, std::ios::out | std::ios::binary);
                     myfile.write((char*)aitexture->pcData, aitexture->mWidth);
                     myfile.close();
-                    LOG(logstream, "Exporting compressed embedded texture " << texture);
+                    LOG(logstream, "Exported compressed embedded texture " << texture);
                 }
                 else
                     LOG(logstream, "Found exported embedded texture " << texture);
