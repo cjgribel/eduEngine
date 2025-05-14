@@ -17,22 +17,19 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-void Texture2D::set_filter_mode(const texture_filter_mode_t &filter_mode)
+void Texture2D::set_filter_mode(const texture_filter_mode_t& filter_mode)
 {
     m_filter_mode = filter_mode;
 };
 
-void Texture2D::set_address_mode(const texture_address_mode_t &address_mode)
+void Texture2D::set_address_mode(const texture_address_mode_t& address_mode)
 {
     m_address_mode = address_mode;
 };
 
-void Texture2D::load_from_file(const std::string &filename,
-                               const std::string &fullpath)
+void Texture2D::load_from_file()
 {
-    m_fullpath = fullpath;
-
-    unsigned char *image;
+    unsigned char* image;
     int w, h, channels;
 
     if (!(image = stbi_load(m_fullpath.c_str(), &w, &h, &channels, 0)))
@@ -43,38 +40,39 @@ void Texture2D::load_from_file(const std::string &filename,
         }
     }
 
-    load_image(filename, image, w, h, channels);
+    load_image(image, w, h, channels);
     stbi_image_free(image);
 }
 
 // Load from an (embedded) aiTexture and not from file
 // void gl_texture_t::load_from_memory(const std::string& filename, const aiTexture* ait)
-void Texture2D::load_from_memory(const std::string &name,
-                                 const unsigned char *data,
-                                 int len)
+void Texture2D::load_from_memory(
+    const unsigned char* data,
+    int len)
 {
     // Compressed embedded texture
 
     int w, h, channels;
-    unsigned char *image;
-    image = stbi_load_from_memory(data,
-                                  len,
-                                  &w, &h, &channels, 0);
+    unsigned char* image;
+    image = stbi_load_from_memory(
+        data,
+        len,
+        &w, &h, &channels, 0);
     if (!image)
     {
-        throw std::runtime_error("Error loading texture " + name + "\n");
+        throw std::runtime_error("Error loading texture " + m_name + "\n");
     }
 
     CheckAndThrowGLErrors();
-    load_image(name, image, w, h, channels);
+    load_image(image, w, h, channels);
     stbi_image_free(image);
 }
 
-void Texture2D::load_image(const std::string &name,
-                           const unsigned char *image,
-                           int w,
-                           int h,
-                           int channels)
+void Texture2D::load_image(
+    const unsigned char* image,
+    int w,
+    int h,
+    int channels)
 {
     m_channels = channels;
 
@@ -103,22 +101,22 @@ void Texture2D::load_image(const std::string &name,
         throw std::runtime_error("Unsupported texture format, number of channels " + std::to_string(channels) + "\n");
     CheckAndThrowGLErrors();
 
-    load_to_VRAM(name, image, w, h, internal_format, format);
+    load_to_VRAM(image, w, h, internal_format, format);
 }
 
-void Texture2D::load_to_VRAM(const std::string &name,
-                             const unsigned char *image,
-                             int w,
-                             int h,
-                             GLuint internal_format,
-                             GLuint format)
+void Texture2D::load_to_VRAM(
+    const unsigned char* image,
+    int w,
+    int h,
+    GLuint internal_format,
+    GLuint format)
 {
     m_width = w;
     m_height = h;
-    m_name = name;
 
-    glGenTextures(1, &m_handle);
-    glBindTexture(GL_TEXTURE_2D, m_handle);
+    m_texture_ptr = GLTexture::create(m_name);
+
+    glBindTexture(GL_TEXTURE_2D, m_texture_ptr->id);
 
     // Minification & magnification filters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_filter_mode.min_filter);
@@ -148,13 +146,13 @@ void Texture2D::load_to_VRAM(const std::string &name,
 
 GLuint Texture2D::getHandle()
 {
-    return m_handle;
+    return m_texture_ptr->id;
 }
 
 void Texture2D::bind(GLenum p_texture_slot) const
 {
     glActiveTexture(p_texture_slot);
-    glBindTexture(GL_TEXTURE_2D, m_handle);
+    glBindTexture(GL_TEXTURE_2D, m_texture_ptr->id);
 }
 
 void Texture2D::unbind() const
@@ -162,14 +160,14 @@ void Texture2D::unbind() const
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture2D::free()
-{
-    if (m_handle)
-    {
-        glDeleteTextures(1, &m_handle);
-        m_handle = 0;
-    }
-}
+// void Texture2D::free()
+// {
+//     if (m_handle)
+//     {
+//         glDeleteTextures(1, &m_handle);
+//         m_handle = 0;
+//     }
+// }
 
 void gl_cubemap_t::load_from_files(const std::string filepaths[])
 {
@@ -195,12 +193,12 @@ void gl_cubemap_t::load_from_files(const std::string filepaths[])
     CheckAndThrowGLErrors();
 }
 
-void gl_cubemap_t::load_from_file(const std::string &fullpath,
-                                  GLenum target)
+void gl_cubemap_t::load_from_file(const std::string& fullpath,
+    GLenum target)
 {
     m_fullpath = fullpath;
 
-    unsigned char *image;
+    unsigned char* image;
     int w, h, channels;
 
     if (!(image = stbi_load(m_fullpath.c_str(), &w, &h, &channels, 0)))
@@ -215,11 +213,11 @@ void gl_cubemap_t::load_from_file(const std::string &fullpath,
     stbi_image_free(image);
 }
 
-void gl_cubemap_t::load_image(const unsigned char *image,
-                              int w,
-                              int h,
-                              int channels,
-                              GLenum target)
+void gl_cubemap_t::load_image(const unsigned char* image,
+    int w,
+    int h,
+    int channels,
+    GLenum target)
 {
     m_channels = channels;
 
@@ -250,12 +248,12 @@ void gl_cubemap_t::load_image(const unsigned char *image,
     load_to_VRAM(image, w, h, internal_format, format, target);
 }
 
-void gl_cubemap_t::load_to_VRAM(const unsigned char *image,
-                                int w,
-                                int h,
-                                GLuint internal_format,
-                                GLuint format,
-                                GLenum target)
+void gl_cubemap_t::load_to_VRAM(const unsigned char* image,
+    int w,
+    int h,
+    GLuint internal_format,
+    GLuint format,
+    GLenum target)
 {
     m_width = w;
     m_height = h;

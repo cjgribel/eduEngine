@@ -746,8 +746,9 @@ namespace eeng
             if (tex_it == m_texturehash.end())
             {
                 // New texture found: create & hash it
-                Texture2D texture;
-                texture.load_from_file(textureFilename, textureAbsPath);
+                Texture2D texture{ textureFilename, textureAbsPath };
+                texture.load_from_file();
+                // texture.load_from_file(textureFilename, textureAbsPath);
                 LOG(logstream, "Loaded texture " << texture);
                 textureIndex = (unsigned)m_textures.size();
                 m_textures.push_back(texture);
@@ -814,12 +815,12 @@ namespace eeng
             // std::string filename = std::to_string(i);
             auto export_path = meta_path / filename;
 
-            Texture2D texture;
+            Texture2D texture{ filename, export_path };
             if (aitexture->mHeight)
             {
                 // REM
                 // Raw embedded image data
-                texture.load_image(filename,
+                texture.load_image(
                     (unsigned char*)aitexture->pcData,
                     aitexture->mWidth,
                     aitexture->mHeight,
@@ -831,11 +832,11 @@ namespace eeng
                 if (!std::filesystem::exists(export_path))
                 {
                     stbi_write_png(export_path.c_str(),
-                                   aitexture->mWidth,
-                                   aitexture->mHeight,
-                                   4,
-                                   aitexture->pcData,
-                                   aitexture->mWidth * sizeof(aiTexel));
+                        aitexture->mWidth,
+                        aitexture->mHeight,
+                        4,
+                        aitexture->pcData,
+                        aitexture->mWidth * sizeof(aiTexel));
                     LOG(logstream, "Exported uncompressed embedded texture " << texture);
                 }
                 else
@@ -845,7 +846,7 @@ namespace eeng
             {
                 // REM
                 // Compressed embedded image data
-                texture.load_from_memory(filename,
+                texture.load_from_memory(
                     (unsigned char*)aitexture->pcData,
                     sizeof(aiTexel) * (aitexture->mWidth));
                 LOG(logstream, "Loaded compressed embedded texture " << texture);
@@ -1272,8 +1273,9 @@ namespace eeng
 
     RenderableMesh::~RenderableMesh()
     {
-        for (auto& t : m_textures)
-            t.free();
+        // REM
+        // for (auto& t : m_textures)
+        //     t.free();
 
         if (m_Buffers[0] != 0)
         {
