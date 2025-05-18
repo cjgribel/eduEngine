@@ -1,5 +1,7 @@
 # eduEngine
 
+![logo](logo.png)
+
 Course framework for **DA376B Game Engine Architecture**, Malmö University.  
 Assets can be downloaded from the course page (not included in the repository).  
 
@@ -35,6 +37,7 @@ Assets can be downloaded from the course page (not included in the repository).
 - LUA binding: [sol2](https://github.com/ThePhD/sol2)
 
 ## Build Instructions
+
 > **Note:** A clean build will take some time to complete since dependencies are compiled from source.
 
 ### 🖥️ Windows with Visual Studio
