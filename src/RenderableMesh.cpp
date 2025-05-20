@@ -705,8 +705,40 @@ namespace eeng
             &ai_texmapmode) != AI_SUCCESS)
             return NoTexture;
 
-        // Relative texture path, e.g. "/textures/texture.png"
+        // Model-relative texture path, e.g. "/textures/texture.png"
+        // USED TO HASH THE TEXTURE NAME -> INDEX
         std::string textureRelPath{ ai_texpath.C_Str() };
+
+        // NEW
+//         unsigned texture_index = NoTexture;
+//         std::string texture_abs_path;
+//         int embedded_texture_index_ = EENG_NULL_INDEX;
+//         if (sscanf(textureRelPath.c_str(), "*%d", &embedded_texture_index_) == 1)
+//         {
+//             // Fetch raw_name from embeddedtexture_index_rawname_map,
+//             // then fetch export_path using embeddedtexture_rawname_path_map
+//             // auto rawname_it = embeddedtexture_index_rawname_map.find(embedded_texture_index_);
+//             // assert(rawname_it != embeddedtexture_index_rawname_map.end() && "Embedded texture index not found in map");
+//             // std::string raw_name = rawname_it->second;
+//             // auto path_it = embeddedtexture_rawname_path_map.find(raw_name);
+//             // assert(path_it != embeddedtexture_rawname_path_map.end() && "Embedded texture raw name not found in map");
+//             // texture_abs_path = path_it->second;
+//             //LOG(logstream, "Using indexed embedded texture: " << embedded_texture_index);
+//         }
+//         else
+//         {
+//             // If textureRelPath is found in embeddedtexture_rawname_path_map
+//             //      - References an embedded texture
+//             //      fetch export_path from embeddedtexture_rawname_path_map
+//             // else
+//             //      Not an embedded texture
+
+// #if 1
+//             std::string textureAbsPath = modelDir + textureRelPath;
+// #else
+//             std::string textureAbsPath = modelDir + textureFilename;
+// #endif
+//         }
 
         // Find an index to this texture, either by retrieving it (embedded texture)
         // or by creating it (texture on file)
@@ -718,6 +750,7 @@ namespace eeng
         int embedded_texture_index = EENG_NULL_INDEX;
         if (sscanf(textureRelPath.c_str(), "*%d", &embedded_texture_index) == 1)
         {
+            // NEW: fetch path from *N index, and then texture index from path
             textureIndex = m_embedded_textures_ofs + embedded_texture_index;
             LOG(logstream, "Using indexed embedded texture: " << embedded_texture_index);
         }
@@ -726,28 +759,40 @@ namespace eeng
         {
             // Texture filename, e.g. "texture.png"
             std::string textureFilename = get_filename(textureRelPath);
-            // Absolute texture path, e.g. "C:/sponza/textures/texture.png"
+
+            // cwd-relative texture path + filename, e.g. "assets/grass/grass.png"
+            // NOTE: Becomes "assets/grass/" + "/grass.png" = "assets/grass//grass.png"
 #if 1
             std::string textureAbsPath = modelDir + textureRelPath;
 #else
             std::string textureAbsPath = modelDir + textureFilename;
 #endif
-            LOG(logstream, "raw path: " << textureRelPath);
-            LOG(logstream, "local file: " << textureAbsPath);
+            // 
+            if (!std::filesystem::exists(textureAbsPath))
+                textureAbsPath = modelDir + textureFilename;
 
-            // Look for non-embedded textures (filepath + filename)
+
+            // LOG(logstream, "raw path: " << textureRelPath);
+            // LOG(logstream, "local file: " << textureAbsPath);
+
+            // Look for embedded & exported texture
             auto tex_it = m_texturehash.find(textureRelPath);
 
+#if 1
+#else
+            // If not found, look for non-embedded texture
             if (tex_it == m_texturehash.end())
             {
                 // Look for embedded texture (just filename)
                 tex_it = m_texturehash.find(textureFilename);
             }
+#endif
+
             if (tex_it == m_texturehash.end())
             {
                 // New texture found: create & hash it
                 Texture2D texture{ textureFilename, textureAbsPath };
-                texture.load_from_file();
+                // texture.load_from_file(); // SKIP -> run for all textures after mtl load
                 // texture.load_from_file(textureFilename, textureAbsPath);
                 LOG(logstream, "Loaded texture " << texture);
                 textureIndex = (unsigned)m_textures.size();
@@ -806,19 +851,64 @@ namespace eeng
         // name hash.
         LOG(logstream, "Embedded textures: " << aiscene->mNumTextures);
 
-        START_TIMER("RenderableMesh::load", "textures");
-        m_embedded_textures_ofs = (unsigned)m_textures.size();
+        START_TIMER("RenderableMesh::load", "export textures");
+        m_embedded_textures_ofs = (unsigned)m_textures.size(); // SKIP
         for (int i = 0; i < aiscene->mNumTextures; i++)
         {
             aiTexture* aitexture = aiscene->mTextures[i];
-            std::string filename = get_filename(aitexture->mFilename.C_Str());
-            // std::string filename = std::to_string(i);
-            auto export_path = meta_path / filename;
+            // This is the filename used by the exporter, which is not interesting to us
+            std::string texture_rawfilename = aitexture->mFilename.C_Str(); // NEW
+            // Extract the filename from the path
+            std::string texture_filename = get_filename(aitexture->mFilename.C_Str());
+            // Fix name if empty
+            if (texture_filename.empty()) texture_filename = "embedded_" + std::to_string(i);
+            // Absolute path to exported texture
+            auto export_path = meta_path / texture_filename;
 
-            Texture2D texture{ filename, export_path };
+            // Create the texture and hash it using the raw filename
+            Texture2D texture{ texture_filename, export_path };
+
+            // NEW
+            // Export embedded texture if needed
+            if (std::filesystem::exists(export_path))
+            {
+                LOG(logstream, "Found exported embedded texture " << texture_filename);
+            }
+            else
+            {
+                if (aitexture->mHeight == 0)
+                {
+                    // Compressed embedded image data - export to file directly
+                    auto myfile = std::fstream(export_path, std::ios::out | std::ios::binary);
+                    myfile.write((char*)aitexture->pcData, aitexture->mWidth);
+                    myfile.close();
+                    LOG(logstream, "Exported compressed embedded texture " << texture_filename);
+                }
+                else
+                {
+                    // Uncompressed embedded image data - compress & export
+                    assert(0 && "Uncompressed embedded texture pending - not tested");
+                    stbi_write_png(export_path.c_str(),
+                        aitexture->mWidth,
+                        aitexture->mHeight,
+                        4,
+                        aitexture->pcData,
+                        aitexture->mWidth * sizeof(aiTexel));
+                    LOG(logstream, "Exported uncompressed embedded texture " << texture_filename);
+                }
+            }
+            // std::string texture_rawname = aitexture->mFilename.C_Str();
+            // embeddedtexture_rawname_path_map[texture_rawname] = export_path;
+            // embeddedtexture_index_rawname_map[i] = texture_rawname;
+
+            // + map aitexture->mFilename.C_Str() -> export_path (embtexname_path_map)
+            // + map INDEX -> aitexture->mFilename.C_Str() (embtex_index_name_map)
+
+#if 1
+#else
+            // REM
             if (aitexture->mHeight)
             {
-                // REM
                 // Raw embedded image data
                 texture.load_image(
                     (unsigned char*)aitexture->pcData,
@@ -826,49 +916,25 @@ namespace eeng
                     aitexture->mHeight,
                     4);
                 LOG(logstream, "Loaded uncompressed embedded texture " << texture);
-
-                // NEW
-                assert(0 && "Uncompressed embedded texture pending - not tested");
-                if (!std::filesystem::exists(export_path))
-                {
-                    stbi_write_png(export_path.c_str(),
-                        aitexture->mWidth,
-                        aitexture->mHeight,
-                        4,
-                        aitexture->pcData,
-                        aitexture->mWidth * sizeof(aiTexel));
-                    LOG(logstream, "Exported uncompressed embedded texture " << texture);
-                }
-                else
-                    LOG(logstream, "Found exported embedded texture " << texture);
             }
             else
             {
-                // REM
                 // Compressed embedded image data
                 texture.load_from_memory(
                     (unsigned char*)aitexture->pcData,
                     sizeof(aiTexel) * (aitexture->mWidth));
                 LOG(logstream, "Loaded compressed embedded texture " << texture);
-
-                // NEW
-                // Compressed embedded image - export to file directly
-                if (!std::filesystem::exists(export_path))
-                {
-                    auto myfile = std::fstream(export_path, std::ios::out | std::ios::binary);
-                    myfile.write((char*)aitexture->pcData, aitexture->mWidth);
-                    myfile.close();
-                    LOG(logstream, "Exported compressed embedded texture " << texture);
-                }
-                else
-                    LOG(logstream, "Found exported embedded texture " << texture);
             }
-
-            m_texturehash[filename] = (unsigned)m_textures.size();
+#endif
+#if 1
+            m_texturehash[texture_rawfilename] = (unsigned)m_textures.size();
+#else
+            m_texturehash[texture_filename] = (unsigned)m_textures.size();
+#endif
             m_textures.push_back(texture);
         }
         LOG(logstream, "Loaded " << aiscene->mNumTextures << " embedded textures");
-        STOP_TIMER("RenderableMesh::load", "textures");
+        STOP_TIMER("RenderableMesh::load", "export textures");
 
         // Initialize the materials
         for (uint i = 0; i < aiscene->mNumMaterials; i++)
@@ -923,10 +989,15 @@ namespace eeng
             if (mtl.textureIndices[TextureType::Normal] == NoTexture)
                 mtl.textureIndices[TextureType::Normal] = loadTexture(pMaterial, aiTextureType_HEIGHT, local_filepath);
 
-            LOG(logstream, "Done loading textures");
-
             m_materials[i] = mtl;
         }
+
+#if 1
+        // Iterate and load textures
+        START_TIMER("RenderableMesh::load", "load textures");
+        for (auto& t : m_textures) t.load_from_file();
+        STOP_TIMER("RenderableMesh::load", "load textures");
+#endif
 
         LOG(logstream, "Done loading materials");
         LOG(logstream, "Num materials " << m_materials.size());

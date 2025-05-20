@@ -170,6 +170,7 @@ namespace eeng
         std::vector<Submesh> m_meshes;
         std::vector<PhongMaterial> m_materials;
         std::vector<Texture2D> m_textures;
+        // std::vector<Texture2D> m_textures;
 
         // Bounding volumes
         std::vector<AABB> m_bone_aabbs_bind; // Per-bone bind AABB
@@ -181,6 +182,14 @@ namespace eeng
     public:
         unsigned m_embedded_textures_ofs = 0;
 
+        // NEW
+    private:
+        ///< Maps raw filename of embedded texture to its export path
+        // std::unordered_map<std::string, std::string> embeddedtexture_rawname_path_map;
+        ///< Maps index of embedded texture to its raw filename
+        // std::unordered_map<int, std::string> embeddedtexture_index_rawname_map;
+
+    public:
         using index_hash_t = std::unordered_map<std::string, unsigned>;
         index_hash_t m_texturehash; // full file path, or just filename for embedded textures
         index_hash_t m_bonehash;
