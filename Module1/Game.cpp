@@ -68,6 +68,36 @@ bool Game::init()
     characterMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
 
+#ifdef SPONZA_PATH
+    sponzaMesh = std::make_shared<eeng::RenderableMesh>();
+    sponzaMesh->load(SPONZA_PATH, false);
+#endif
+#ifdef CHARACTER_PATH
+    qcharacterMesh = std::make_shared<eeng::RenderableMesh>();
+    qcharacterMesh->load(CHARACTER_PATH, false);
+#endif
+#ifdef ENEMY_PATH
+    enemyMesh = std::make_shared<eeng::RenderableMesh>();
+    enemyMesh->load(ENEMY_PATH, false);
+#endif
+#ifdef EXORED_PATH
+    exoredMesh = std::make_shared<eeng::RenderableMesh>();
+    exoredMesh->load(EXORED_PATH, false);
+#endif
+#ifdef EVE_PATH
+    eveMesh = std::make_shared<eeng::RenderableMesh>();
+    eveMesh->load(EVE_PATH, false);
+#endif
+#ifdef MANNEQUIN_PATH
+    mannequinMesh = std::make_shared<eeng::RenderableMesh>();
+    mannequinMesh->load(MANNEQUIN_PATH, false);
+#endif
+#ifdef UE5QUINN_PATH
+    ue5quinnMesh = std::make_shared<eeng::RenderableMesh>();
+    ue5quinnMesh->load(UE5QUINN_PATH, false);
+    ue5quinnMesh->load(UE5QUINN_ANIM1_PATH, true);
+#endif
+
     grassWorldMatrix = glm_aux::TRS(
         { 0.0f, 0.0f, 0.0f },
         0.0f, { 0, 1, 0 },
@@ -174,6 +204,34 @@ void Game::render(
     forwardRenderer->renderMesh(characterMesh, characterWorldMatrix3);
     character_aabb3 = characterMesh->m_model_aabb.post_transform(characterWorldMatrix3);
 
+#ifdef SPONZA_PATH
+    forwardRenderer->renderMesh(sponzaMesh, glm::mat4{ 1.0f });
+#endif
+#ifdef CHARACTER_PATH
+    qcharacterMesh->animate(CHARACTER_ANIM, time);
+    forwardRenderer->renderMesh(qcharacterMesh, glm_aux::TS({ 0.0f, 0.0f, -5.0f }, { 0.02f, 0.02f, 0.02f }));
+#endif
+#ifdef ENEMY_PATH
+    enemyMesh->animate(ENEMY_ANIM, time);
+    forwardRenderer->renderMesh(enemyMesh, glm_aux::TS({ 0.0f, 0.0f, -10.0f }, { 0.02f, 0.02f, 0.02f }));
+#endif
+#ifdef EXORED_PATH
+    exoredMesh->animate(EXORED_ANIM, time);
+    forwardRenderer->renderMesh(exoredMesh, glm_aux::TS({ 0.0f, 0.0f, -15.0f }, { 0.05f, 0.05f, 0.05f }));
+#endif
+#ifdef EVE_PATH
+    eveMesh->animate(EVE_ANIM, time);
+    forwardRenderer->renderMesh(eveMesh, glm_aux::TS({ 0.0f, 0.0f, -20.0f }, { 0.05f, 0.05f, 0.05f }));
+#endif
+#ifdef MANNEQUIN_PATH
+    mannequinMesh->animate(MANNEQUIN_ANIM, time);
+    forwardRenderer->renderMesh(mannequinMesh, glm_aux::TS({ 0.0f, 0.0f, -25.0f }, { 0.05f, 0.05f, 0.05f }));
+#endif
+#ifdef UE5QUINN_PATH
+    ue5quinnMesh->animate(UE5QUINN_ANIM, time);
+    forwardRenderer->renderMesh(ue5quinnMesh, glm_aux::TRS({ 0.0f, 0.0f, -30.0f }, glm::radians(-90.0f), { 1.0f, 0.0f, 0.0f }, { 0.05f, 0.05f, 0.05f }));
+#endif
+
     // End rendering pass
     drawcallCount = forwardRenderer->endPass();
 
@@ -216,7 +274,7 @@ void Game::render(
         shapeRenderer->push_states(glm_aux::T(glm::vec3(0.0f, 0.0f, -5.0f)));
         ShapeRendering::DemoDraw(shapeRenderer);
         shapeRenderer->pop_states<glm::mat4>();
-    }
+}
 #endif
 
     // Draw shape batches

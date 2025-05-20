@@ -8,6 +8,21 @@
 #include "ForwardRenderer.hpp"
 #include "ShapeRenderer.hpp"
 
+// #define SPONZA_PATH "assets/crytek-sponza_hansen/sponza.obj"
+#define CHARACTER_PATH "assets/Ultimate Platformer Pack/Character/Character.fbx"
+#define CHARACTER_ANIM 0
+#define ENEMY_PATH "assets/Ultimate Platformer Pack/Enemies/Enemy.fbx"
+#define ENEMY_ANIM 0
+#define EXORED_PATH "assets/ExoRed/exo_red.fbx"
+#define EXORED_ANIM 0
+//#define EVE_PATH "assets/Eve/Eve By J.Gonzales.fbx"
+#define EVE_ANIM -1
+#define MANNEQUIN_PATH "assets/UEMannequin/SK_Mannequin_tex.FBX"
+#define MANNEQUIN_ANIM -1
+#define UE5QUINN_PATH "assets/UE5_Mannequin/SKM_Quinn.fbx"
+#define UE5QUINN_ANIM1_PATH "assets/UE5_Mannequin/MF_Idle.fbx"
+#define UE5QUINN_ANIM 0
+
 /// @brief A Game may hold, update and render 3D geometry and GUI elements
 class Game : public eeng::GameBase
 {
@@ -98,6 +113,27 @@ private:
 
     // Game meshes
     std::shared_ptr<eeng::RenderableMesh> grassMesh, horseMesh, characterMesh;
+#ifdef SPONZA_PATH
+    std::shared_ptr<eeng::RenderableMesh> sponzaMesh;
+#endif
+#ifdef CHARACTER_PATH
+    std::shared_ptr<eeng::RenderableMesh> qcharacterMesh;
+#endif
+#ifdef ENEMY_PATH
+    std::shared_ptr<eeng::RenderableMesh> enemyMesh;
+#endif
+#ifdef EXORED_PATH
+    std::shared_ptr<eeng::RenderableMesh> exoredMesh;
+#endif
+#ifdef EVE_PATH
+    std::shared_ptr<eeng::RenderableMesh> eveMesh;
+#endif
+#ifdef MANNEQUIN_PATH
+    std::shared_ptr<eeng::RenderableMesh> mannequinMesh;
+#endif
+#ifdef UE5QUINN_PATH
+    std::shared_ptr<eeng::RenderableMesh> ue5quinnMesh;
+#endif
 
     // Game entity transformations
     glm::mat4 characterWorldMatrix1, characterWorldMatrix2, characterWorldMatrix3;

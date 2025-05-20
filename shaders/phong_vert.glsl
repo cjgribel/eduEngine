@@ -1,5 +1,5 @@
 #version 410 core
-const int MaxBones = 128;
+const int MaxBones = 161; // 128;
 
 layout (location = 0) in vec3 attr_Position;
 layout (location = 1) in vec2 attr_Texcoord;
