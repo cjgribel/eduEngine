@@ -18,8 +18,9 @@
 //#define EVE_PATH "assets/Eve/Eve By J.Gonzales.fbx"
 #define EVE_ANIM -1
 #define MANNEQUIN_PATH "assets/UEMannequin/SK_Mannequin_tex.FBX"
-#define MANNEQUIN_ANIM -1
-#define UE5QUINN_PATH "assets/UE5_Mannequin/SKM_Quinn.fbx"
+#define MANNEQUIN_PATH_ANIM1_PATH "assets/UEMannequin/Anim_Stand_Idle_PreviewMesh.fbx"
+#define MANNEQUIN_ANIM 0
+#define UE5QUINN_PATH "assets/UE5_Mannequin/SKM_Quinn_tex.fbx"
 #define UE5QUINN_ANIM1_PATH "assets/UE5_Mannequin/MF_Idle.fbx"
 #define UE5QUINN_ANIM 0
 

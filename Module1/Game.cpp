@@ -91,6 +91,7 @@ bool Game::init()
 #ifdef MANNEQUIN_PATH
     mannequinMesh = std::make_shared<eeng::RenderableMesh>();
     mannequinMesh->load(MANNEQUIN_PATH, false);
+    mannequinMesh->load(MANNEQUIN_PATH_ANIM1_PATH, true);
 #endif
 #ifdef UE5QUINN_PATH
     ue5quinnMesh = std::make_shared<eeng::RenderableMesh>();
@@ -229,7 +230,7 @@ void Game::render(
 #endif
 #ifdef UE5QUINN_PATH
     ue5quinnMesh->animate(UE5QUINN_ANIM, time);
-    forwardRenderer->renderMesh(ue5quinnMesh, glm_aux::TRS({ 0.0f, 0.0f, -30.0f }, glm::radians(-90.0f), { 1.0f, 0.0f, 0.0f }, { 0.05f, 0.05f, 0.05f }));
+    forwardRenderer->renderMesh(ue5quinnMesh, glm_aux::TS({ -5.0f, 0.0f, -25.0f }, { 0.05f, 0.05f, 0.05f }));
 #endif
 
     // End rendering pass
