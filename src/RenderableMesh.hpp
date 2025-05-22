@@ -179,8 +179,8 @@ namespace eeng
         std::vector<AABB> m_mesh_aabbs_pose; // Per-mesh pose AABB's – intermediary, used for visualization
         AABB m_model_aabb;                   // AABB for the entire model
 
-    public:
-        unsigned m_embedded_textures_ofs = 0;
+    // public:
+    //     unsigned m_embedded_textures_ofs = 0;
 
         // NEW
     private:
