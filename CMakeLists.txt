@@ -200,6 +200,8 @@ add_executable(Module1
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ForwardRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ShapeRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Log.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ResourceRegistry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AssimpImporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util/Profiler.cpp
     )
 

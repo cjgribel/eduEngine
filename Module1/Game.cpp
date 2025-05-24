@@ -5,6 +5,9 @@
 #include "Log.hpp"
 #include "Game.hpp"
 
+// --> ENGINE API
+#include "AssimpImporter.hpp"
+
 bool Game::init()
 {
     forwardRenderer = std::make_shared<eeng::ForwardRenderer>();
@@ -12,6 +15,21 @@ bool Game::init()
 
     shapeRenderer = std::make_shared<ShapeRendering::ShapeRenderer>();
     shapeRenderer->init();
+
+    {
+        // resource_registry = std::make_unique<eeng::ResourceRegistry>();
+        // // TEST
+        // auto h1 = resource_registry->add<eeng::Mesh>();
+        // eeng::Mesh& m = resource_registry->get(h1);
+        // resource_registry->remove(h1);
+        
+        using namespace eeng;
+        ResourceRegistry registry;
+        Handle<Mesh> h = registry.add<Mesh>();
+        registry.retain(h);
+        auto& mesh = registry.get(h);
+        registry.release(h);
+    }
 
     // Do some entt stuff
     entity_registry = std::make_shared<entt::registry>();
@@ -275,13 +293,13 @@ void Game::render(
         shapeRenderer->push_states(glm_aux::T(glm::vec3(0.0f, 0.0f, -5.0f)));
         ShapeRendering::DemoDraw(shapeRenderer);
         shapeRenderer->pop_states<glm::mat4>();
-}
+    }
 #endif
 
     // Draw shape batches
     shapeRenderer->render(matrices.P * matrices.V);
     shapeRenderer->post_render();
-}
+    }
 
 void Game::renderUI()
 {

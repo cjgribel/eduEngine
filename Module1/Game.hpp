@@ -6,7 +6,10 @@
 #include "GameBase.h"
 #include "RenderableMesh.hpp"
 #include "ForwardRenderer.hpp"
+
+// --> ENGINE API
 #include "ShapeRenderer.hpp"
+#include "ResourceRegistry.hpp"
 
 // #define SPONZA_PATH "assets/crytek-sponza_hansen/sponza.obj"
 #define CHARACTER_PATH "assets/Ultimate Platformer Pack/Character/Character.fbx"
@@ -57,6 +60,8 @@ private:
     /// @brief For rendering of GUI elements
     void renderUI();
 
+    // --> ENGINE API
+
     // Renderer for rendering imported animated or non-animated models
     eeng::ForwardRendererPtr forwardRenderer;
 
@@ -64,7 +69,11 @@ private:
     ShapeRendererPtr shapeRenderer;
 
     // Entity registry - to use in labs
-    std::shared_ptr<entt::registry> entity_registry;
+    std::shared_ptr<entt::registry> entity_registry; // unique + and out weak ptrs?
+
+    std::unique_ptr<eeng::ResourceRegistry> resource_registry;
+
+    // <-- ENGINE API
 
     // Matrices for view, projection and viewport
     struct Matrices
