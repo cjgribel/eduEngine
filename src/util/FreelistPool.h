@@ -21,6 +21,8 @@ namespace eeng {
 
     // --- FreelistPool v3 2025 ------------------------------------------------
 
+    // Runtime Type-Safe, Not Statically Type-Safe
+
     // * Raw memory allocator with alignment
     // * No type template - type is provided separately to create / destroy / get
     //      It is the responsibility of the user to always use the same type
@@ -52,7 +54,7 @@ namespace eeng {
         index_type  m_free_first = m_index_null;
         index_type  m_free_last = m_index_null;
 
-        mutable std::mutex m_mutex;
+        mutable std::recursive_mutex m_mutex;
 
         inline void assert_index(index_type index) const
         {
@@ -236,7 +238,7 @@ namespace eeng {
 
         void dump_pool() const
         {
-            // std::lock_guard lock(m_mutex);
+            std::lock_guard lock(m_mutex);
 
             // Print all elements.
             // [x] = used element
@@ -297,11 +299,14 @@ namespace eeng {
         }
 
         // Link-in new elements at the back
-        void expand_freelist(size_t old_capacity,
+        void expand_freelist(
+            size_t old_capacity,
             size_t new_capacity)
         {
             // Assume everything is linked up until old_capacity-1:
             // link-in from old_capacity to new_capacity-1
+
+            // std::lock_guard lock(m_mutex);
 
             assert(new_capacity > old_capacity);
             assert(new_capacity >= m_type_info.size);
@@ -323,11 +328,17 @@ namespace eeng {
             val_at<index_type>(m_pool, m_free_last) = m_index_null;
         }
 
-        // Resize to any new size, including size = 0.
-        // The free-list is moved to the new location, but not expanded.
+        // Resize to a new capacity larger than the current one.
+        // All live (non-free) elements are moved to the new buffer.
+        // The freelist is preserved but not expanded; new elements must be linked via expand_freelist().
+        //
+        // Shrinking the pool is not supported: reducing capacity may invalidate existing objects
+        // or corrupt the freelist structure.
         template<class T>
         void resize(size_t size)
         {
+            // std::lock_guard lock(m_mutex);
+            assert(size >= m_capacity && "Shrinking the pool is not supported");
             if (size == m_capacity) return;
 
             void* prev_pool = m_pool; m_pool = nullptr;
