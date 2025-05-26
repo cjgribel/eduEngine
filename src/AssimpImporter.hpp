@@ -1,18 +1,12 @@
-// AssimpLoader.hpp
-#pragma once
+// Created by Carl Johan Gribel 2025.
+// Licensed under the MIT License. See LICENSE file for details.
 
-// #include <chrono>
-// #include <iostream>
-// #include <iostream>
-// #include <ostream>
-// #include <iomanip>
-// #include <mutex>
-// #include <string>
-// #include <unordered_map>
+#pragma once
+#ifndef ASSIMP_IMPORTER_HPP
+#define ASSIMP_IMPORTER_HPP
 
 #include "ThreadPool.hpp"
 #include "ResourceRegistry.hpp"
-
 #include "Texture.hpp"
 
 // Placeholder resources
@@ -47,13 +41,56 @@ namespace eeng
 
 namespace eeng
 {
+    class ResourceRegistry;
+    class ThreadPool;
+
+    enum class ImportFlags : unsigned int
+    {
+        None = 0,
+        GenerateTangents = 1 << 0,
+        FlipUVs = 1 << 1,
+        OptimizeMesh = 1 << 2,
+        // Extend as needed
+    };
+
+    struct ModelImportOptions
+    {
+        Handle<Model> model;                  // Valid handle, may refer to an empty model
+        bool append_animations = false;      // If true, importer only loads animation data
+        float scale = 1.0f;
+        ImportFlags flags = ImportFlags::None;
+    };
+
+    struct ModelImportResult
+    {
+        bool success = false;
+        std::string error_message;
+        std::string source_path;
+    };
 
     class AssimpImporter
     {
     public:
-        static Handle<Model> load_into(const std::string& file,
+        AssimpImporter();
+        ~AssimpImporter();
+
+        /**
+         * @brief Import a model or animation from a file.
+         *
+         * @param file_path Path to the FBX/OBJ/etc. file to import.
+         * @param options Import options, including target model and mode.
+         * @param registry Reference to the resource registry for creating/updating handles.
+         * @param thread_pool Optional thread pool for parallel processing (e.g., textures).
+         */
+        ModelImportResult import_model(const std::string& file_path,
+            const ModelImportOptions& options,
             ResourceRegistry& registry,
-            ThreadPool& pool);
+            ThreadPool* thread_pool = nullptr);
+
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> m_impl;
     };
 } // namespace eeng
 
+#endif // ASSIMP_IMPORTER_HPP

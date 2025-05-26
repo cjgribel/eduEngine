@@ -1,5 +1,7 @@
-#pragma once
+// Created by Carl Johan Gribel 2025.
+// Licensed under the MIT License. See LICENSE file for details.
 
+#pragma once
 #include <cstdint>      // uint64_t
 #include <atomic>       // std::atomic
 #include <functional>   // std::hash

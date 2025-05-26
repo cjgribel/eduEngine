@@ -1,9 +1,5 @@
-//
-//  handle.h
-//
-//  Created by Carl Johan Gribel on 2022-12-15.
-//  Copyright © 2022 Carl Johan Gribel. All rights reserved.
-//
+// Created by Carl Johan Gribel 2025.
+// Licensed under the MIT License. See LICENSE file for details.
 
 #ifndef Handle_h
 #define Handle_h
