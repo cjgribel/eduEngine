@@ -9,7 +9,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 # Single executable for all tests
-add_executable(tests VecTree_tests.cpp ResourceRegistry_tests.cpp)
+add_executable(tests 
+    VecTree_tests.cpp 
+    ResourceRegistry_tests.cpp
+    FreelistPool_tests.cpp)
+
 target_link_libraries(tests PRIVATE gtest_main)
 
 include(GoogleTest)

@@ -21,7 +21,7 @@
 
 #include "Handle.h"
 #include "Guid.h"
-#include "FreelistPool2.h"
+#include "FreelistPool.h"
 // #include "Texture.hpp"
 
 namespace eeng
@@ -227,7 +227,7 @@ namespace eeng
             }
         }
 
-        FreelistPool2 m_pool;
+        FreelistPool m_pool;
         VersionMap<T> m_versions;
         std::vector<uint32_t> m_ref_counts;
 

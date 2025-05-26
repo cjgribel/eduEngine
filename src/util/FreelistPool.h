@@ -1,29 +1,25 @@
-//
-//  FreelistPool2.h
-//
-//  Created by Carl Johan Gribel on 2022-12-15.
-//  Copyright © 2022 Carl Johan Gribel. All rights reserved.
-//
+// Created by Carl Johan Gribel 2022-2025.
+// Licensed under the MIT License. See LICENSE file for details.
 
-#ifndef FreelistPool2_h
-#define FreelistPool2_h
+#ifndef FreelistPool_h
+#define FreelistPool_h
 
-#include <typeindex>
+#include <typeindex> // std::type_index
 #include <cassert>
-#include <iostream>
-#include <memory>
-#include <utility> // for std::exchange
-#include <limits> // for std::numeric_limits
-#include <algorithm> // for std::copy
-#include <cstring> // for std::memcpy
-#include <stdexcept> // for std::bad_alloc
-// #include <mutex> // 
+#include <iostream> // std::cout
+#include <memory> // std::unique_ptr
+#include <utility> // std::exchange
+#include <limits> // std::numeric_limits
+#include <algorithm> // std::copy
+#include <cstring> // std::memcpy
+#include <stdexcept> // std::bad_alloc
+#include <mutex> // std::mutex
 #include "memaux.h"
 #include "Handle.h"
 
 namespace eeng {
 
-    // MARK: --- FreelistPool v2 ---------------------------------------------------
+    // --- FreelistPool v3 2025 ------------------------------------------------
 
     // * Raw memory allocator with alignment
     // * No type template - type is provided separately to create / destroy / get
@@ -43,7 +39,7 @@ namespace eeng {
         }
     };
 
-    class FreelistPool2
+    class FreelistPool
     {
         using index_type = std::size_t;
 
@@ -55,6 +51,8 @@ namespace eeng {
         size_t      m_capacity = 0;     // Capacity in bytes
         index_type  m_free_first = m_index_null;
         index_type  m_free_last = m_index_null;
+
+        mutable std::mutex m_mutex;
 
         inline void assert_index(index_type index) const
         {
@@ -98,7 +96,8 @@ namespace eeng {
 
         //    FreelistPool2() = default;
 
-        FreelistPool2(const TypeInfo type_info,
+        FreelistPool(
+            const TypeInfo type_info,
             size_t pool_alignment = PoolMinAlignment) :
             m_type_info(type_info),
             m_pool_alignment(align_up(pool_alignment, PoolMinAlignment))
@@ -141,7 +140,7 @@ namespace eeng {
         //    FreelistPool2(const FreelistPool2&) = delete;
         //    FreelistPool2& operator=(const FreelistPool2&) = delete;
 
-        ~FreelistPool2()
+        ~FreelistPool()
         {
             if (m_pool)
                 aligned_free(&m_pool);
@@ -156,7 +155,7 @@ namespace eeng {
         template<class T, class... Args>
         Handle<T> create(Args&&... args)
         {
-            //        std::cout << __PRETTY_FUNCTION__ << std::endl;
+            std::lock_guard lock(m_mutex);
             assert(m_type_info.index == std::type_index(typeid(T)));
 
             // Expand if free-list is empty
@@ -186,6 +185,7 @@ namespace eeng {
         template<class T>
         void destroy(Handle<T> handle)
         {
+            std::lock_guard lock(m_mutex);
             assert(m_type_info.index == std::type_index(typeid(T)));
 
             T* elem_ptr = ptr_at<T>(m_pool, handle.ofs);
@@ -208,6 +208,7 @@ namespace eeng {
         template<class T>
         T& get(Handle<T> handle)
         {
+            std::lock_guard lock(m_mutex);
             assert(m_type_info.index == std::type_index(typeid(T)));
 
             return *ptr_at<T>(m_pool, handle.ofs);
@@ -216,6 +217,7 @@ namespace eeng {
         template<class T>
         T& get(Handle<T> handle) const
         {
+            std::lock_guard lock(m_mutex);
             assert(m_type_info.index == std::type_index(typeid(T)));
 
             return *ptr_at<T>(m_pool, handle.ofs);
@@ -223,6 +225,8 @@ namespace eeng {
 
         index_type count_free() const
         {
+            std::lock_guard lock(m_mutex);
+
             index_type index_count = 0;
             freelist_visitor([&](index_type i) {
                 index_count++;
@@ -232,6 +236,8 @@ namespace eeng {
 
         void dump_pool() const
         {
+            // std::lock_guard lock(m_mutex);
+
             // Print all elements.
             // [x] = used element
             // [i] = free element pointing to next free element at index i
@@ -258,6 +264,8 @@ namespace eeng {
         template<class T, class F>
         void used_visitor(F&& f)
         {
+            std::lock_guard lock(m_mutex);
+
             std::vector<bool> used(m_capacity / m_type_info.size, true);
             freelist_visitor([&](index_type i) {
                 used[i / m_type_info.size] = false;
