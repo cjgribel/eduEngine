@@ -93,10 +93,27 @@ if(NOT glew_POPULATED)
 endif()
 
 #
+# Find or fetch Zlib
+# Required by Assimp. Assimp's packaged version is too old to use.
+#
+find_package(ZLIB QUIET)
+if (NOT ZLIB_FOUND)
+    message(STATUS "System Zlib not found, fetching Zlib...")
+
+    FetchContent_Declare(
+        zlib
+        URL https://zlib.net/zlib-1.3.1.tar.gz
+        URL_HASH SHA256=9c5919e0a086e0c59f7c64b9816a30882d89ecf9b7bd774945874bc4a93d7b82
+    )
+    FetchContent_MakeAvailable(zlib)
+endif()
+
+#
 # Fetch Assimp
 #
 message(STATUS "Fetching Assimp")
-set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "Build zlib" FORCE)
+#set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "Build zlib" FORCE)
+set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "Don't build internal zlib" FORCE)
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "Build Assimp tools" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Build Assimp tests" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "Install Assimp" FORCE)
@@ -108,7 +125,7 @@ else()
     FetchContent_Declare(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
-        GIT_TAG v5.0.1 # 5.3.0 - v5.4.0 breaks some Mixamo animations
+        GIT_TAG v6.0.1
         GIT_SHALLOW ON
     )
     FetchContent_MakeAvailable(assimp)
@@ -204,9 +221,14 @@ add_executable(Module1
 set_target_properties(Module1 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Module1"
 )
-target_link_libraries(Module1 PRIVATE SDL2 assimp libglew_static glm::glm ${OPENGL_LIBRARIES})
-#target_include_directories(Module1 PRIVATE ${imgui_SOURCE_DIR})
-#target_include_directories(Module1 PRIVATE ${imgui_SOURCE_DIR}/backends)
+
+target_link_libraries(Module1 PRIVATE 
+    SDL2 
+    assimp 
+    ZLIB::ZLIB 
+    libglew_static 
+    glm::glm 
+    ${OPENGL_LIBRARIES})
 
 # Post-build commands
 add_custom_command(TARGET Module1 POST_BUILD
