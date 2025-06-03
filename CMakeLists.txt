@@ -93,27 +93,15 @@ if(NOT glew_POPULATED)
 endif()
 
 #
-# Find or fetch Zlib
-# Required by Assimp. Assimp's packaged version is too old to use.
-#
-find_package(ZLIB QUIET)
-if (NOT ZLIB_FOUND)
-    message(STATUS "System Zlib not found, fetching Zlib...")
-
-    FetchContent_Declare(
-        zlib
-        URL https://zlib.net/zlib-1.3.1.tar.gz
-        URL_HASH SHA256=9c5919e0a086e0c59f7c64b9816a30882d89ecf9b7bd774945874bc4a93d7b82
-    )
-    FetchContent_MakeAvailable(zlib)
-endif()
-
-#
 # Fetch Assimp
 #
 message(STATUS "Fetching Assimp")
-#set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "Build zlib" FORCE)
-set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "Don't build internal zlib" FORCE)
+if (APPLE)
+    set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "Disable Assimp's zlib on macOS" FORCE)
+    find_package(ZLIB REQUIRED) # Use macOS system zlib
+else()
+    set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "Use bundled zlib on Windows" FORCE)
+endif()
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "Build Assimp tools" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Build Assimp tests" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "Install Assimp" FORCE)
@@ -132,12 +120,6 @@ else()
     message(STATUS "Assimp fetched and made available")
 endif()
 include_directories(${assimp_SOURCE_DIR})
-# Set C++14 standard for Assimp 5.0.1
-#set_target_properties(assimp PROPERTIES
-#    CXX_STANDARD 14
-#    CXX_STANDARD_REQUIRED ON
-#    CXX_EXTENSIONS OFF
-#)
 
 #
 # Fetch STB
@@ -225,10 +207,12 @@ set_target_properties(Module1 PROPERTIES
 target_link_libraries(Module1 PRIVATE 
     SDL2 
     assimp 
-    ZLIB::ZLIB 
     libglew_static 
     glm::glm 
     ${OPENGL_LIBRARIES})
+if (TARGET ZLIB::ZLIB)
+    target_link_libraries(Module1 PRIVATE ZLIB::ZLIB)
+endif()
 
 # Post-build commands
 add_custom_command(TARGET Module1 POST_BUILD
