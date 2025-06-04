@@ -219,9 +219,6 @@ if (TARGET ZLIB::ZLIB)
     target_link_libraries(Module1 PRIVATE ZLIB::ZLIB)
 endif()
 
-target_compile_definitions(Module1 PRIVATE META_OUTPUT_DIR="${CMAKE_BINARY_DIR}/Module1/meta")
-# target_compile_definitions(Module1 PRIVATE VERBOSE_LOGGING)
-
 # Post-build commands
 add_custom_command(TARGET Module1 POST_BUILD
     # Copy SDL2 DLL to the build directory (for Windows)
