@@ -97,7 +97,12 @@ endif()
 # Fetch Assimp
 #
 message(STATUS "Fetching Assimp")
-set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "Build zlib" FORCE)
+if (APPLE)
+    set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "Disable Assimp's zlib on macOS" FORCE)
+    find_package(ZLIB REQUIRED) # Use macOS system zlib
+else()
+    set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "Use bundled zlib on Windows" FORCE)
+endif()
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "Build Assimp tools" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Build Assimp tests" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "Install Assimp" FORCE)
@@ -109,19 +114,13 @@ else()
     FetchContent_Declare(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
-        GIT_TAG v5.0.1 # 5.3.0 - v5.4.0 breaks some Mixamo animations
+        GIT_TAG v6.0.1
         GIT_SHALLOW ON
     )
     FetchContent_MakeAvailable(assimp)
     message(STATUS "Assimp fetched and made available")
 endif()
 include_directories(${assimp_SOURCE_DIR})
-# Set C++14 standard for Assimp 5.0.1
-#set_target_properties(assimp PROPERTIES
-#    CXX_STANDARD 14
-#    CXX_STANDARD_REQUIRED ON
-#    CXX_EXTENSIONS OFF
-#)
 
 #
 # Fetch STB
