@@ -205,8 +205,19 @@ add_executable(Module1
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util/Profiler.cpp
     )
 
-set_target_properties(Module1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Module1")
-target_link_libraries(Module1 PRIVATE SDL2 assimp libglew_static glm::glm ${OPENGL_LIBRARIES})
+set_target_properties(Module1 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Module1"
+)
+
+target_link_libraries(Module1 PRIVATE 
+    SDL2 
+    assimp 
+    libglew_static 
+    glm::glm 
+    ${OPENGL_LIBRARIES})
+if (TARGET ZLIB::ZLIB)
+    target_link_libraries(Module1 PRIVATE ZLIB::ZLIB)
+endif()
 
 target_compile_definitions(Module1 PRIVATE META_OUTPUT_DIR="${CMAKE_BINARY_DIR}/Module1/meta")
 # target_compile_definitions(Module1 PRIVATE VERBOSE_LOGGING)
