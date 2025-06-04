@@ -16,19 +16,19 @@ bool Game::init()
     shapeRenderer = std::make_shared<ShapeRendering::ShapeRenderer>();
     shapeRenderer->init();
 
-    {
-        // resource_registry = std::make_unique<eeng::ResourceRegistry>();
-        // // TEST
-        // auto h1 = resource_registry->add<eeng::Mesh>();
-        // eeng::Mesh& m = resource_registry->get(h1);
-        // resource_registry->remove(h1);
+    // RESOURCE REGISTRY TEST
+    {   
+        // + concurrent load
         
         using namespace eeng;
         ResourceRegistry registry;
         Handle<Mesh> h = registry.add<Mesh>();
-        registry.retain(h);
+        // registry.retain(h); // 
         auto& mesh = registry.get(h);
-        registry.release(h);
+        // registry.release(h); // ???
+        
+        // + remove resource
+        // resource_registry->remove(h1);
     }
 
     // Do some entt stuff
@@ -42,7 +42,7 @@ bool Game::init()
 
     // Grass
     grassMesh = std::make_shared<eeng::RenderableMesh>();
-    grassMesh->load("assets/grass/grass_trees_merged2.fbx", false);
+    grassMesh->load("assets/grass/grass_trees_merged.fbx", false);
 
     // Horse
     horseMesh = std::make_shared<eeng::RenderableMesh>();
@@ -66,7 +66,7 @@ bool Game::init()
     // Remove root motion
     characterMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
-#if 1
+#if 0
     // Amy 5.0.1 PACK FBX
     characterMesh->load("assets/Amy/Ch46_nonPBR.fbx");
     characterMesh->load("assets/Amy/idle.fbx", true);
@@ -74,7 +74,7 @@ bool Game::init()
     // Remove root motion
     characterMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
-#if 0
+#if 1
     // Eve 5.0.1 PACK FBX
     // Fix for assimp 5.0.1 (https://github.com/assimp/assimp/issues/4486)
     // FBXConverter.cpp, line 648: 
