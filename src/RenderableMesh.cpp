@@ -819,7 +819,7 @@ namespace eeng
 
             // Hash texture object using the raw filename
             m_texturehash[texture_rawfilename] = (unsigned)m_textures.size();
-            m_textures.push_back(Texture2D{ texture_filename, export_path });
+            m_textures.push_back(Texture2D{ texture_filename, export_path.string() });
 
             // Export texture if needed
             if (std::filesystem::exists(export_path))
@@ -840,7 +840,7 @@ namespace eeng
                 {
                     // Uncompressed embedded image data: compress & export
                     assert(0 && "Uncompressed embedded texture pending - not tested");
-                    stbi_write_png(export_path.c_str(),
+                    stbi_write_png(export_path.string().c_str(),
                         aitexture->mWidth,
                         aitexture->mHeight,
                         4,

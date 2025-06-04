@@ -5,6 +5,11 @@
 #ifndef ASSIMP_IMPORTER_HPP
 #define ASSIMP_IMPORTER_HPP
 
+#include <string>
+#include <vector>
+#include <memory>
+#include <optional>
+#include "Handle.h"
 #include "ThreadPool.hpp"
 #include "ResourceRegistry.hpp"
 #include "Texture.hpp"
