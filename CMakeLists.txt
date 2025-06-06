@@ -239,6 +239,11 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio")
     message(STATUS "Set Visual Studio startup project to Module1")
 endif()
 
+if(MSVC)
+    target_compile_options(Module1 PRIVATE /MP)
+    message(STATUS "Enabled multi-threaded compilation with /MP for Module1")
+endif()
+
 # For 'make install'
 #install(TARGETS Module1 Module2)
 # message(STATUS "Install targets
