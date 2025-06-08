@@ -13,6 +13,7 @@
 
 #include "InputManager.hpp"
 #include "Log.hpp"
+#include "MetaReg.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -75,6 +76,8 @@ namespace eeng {
 #endif
 
         input = std::make_shared<eeng::InputManager>();
+
+        register_meta_types();
 
         eeng::Log("Engine initialized successfully.");
         return true;

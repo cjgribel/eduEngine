@@ -1,0 +1,127 @@
+// Licensed under the MIT License. See LICENSE file for details.
+
+// #include <iostream>
+#include "entt/entt.hpp"
+#include "nlohmann/json.hpp"
+#include "config.h"
+#include "MetaReg.hpp"
+#include "ResourceTypes.h"
+#include "MetaLiterals.h"
+#include "MetaInfo.h"
+
+namespace eeng {
+
+    // + EngineContext for serialization & deserialization
+
+#if 0
+    void BehaviorScript_to_json(nlohmann::json& j, const void* ptr)
+    {
+        std::cout << "BehaviorScript_to_json\n";
+
+        auto script = static_cast<const BehaviorScript*>(ptr);
+
+        // self sol::table
+        nlohmann::json self_json;
+        table_to_json(self_json, script->self);
+        j["self"] = self_json;
+
+        j["identifier"] = script->identifier;
+        j["path"] = script->path;
+    }
+
+    void BehaviorScript_from_json(
+        const nlohmann::json& j,
+        void* ptr,
+        const Entity& entity,
+        Editor::Context& context)
+    {
+        std::cout << "BehaviorScript_from_json\n";
+
+        auto script = static_cast<BehaviorScript*>(ptr);
+        std::string identifier = j["identifier"];
+        std::string path = j["path"];
+
+        // self sol::table
+        // LOAD + copy Lua meta fields
+        *script = BehaviorScriptFactory::create_from_file(
+            *context.registry,
+            entity,
+            *context.lua, // self.lua_state() <- nothing here
+            path,
+            identifier);
+
+        table_from_json(script->self, j["self"]);
+    }
+#endif
+
+#if 0
+    template<typename T>
+    void serialize_handle(const Handle<T>& handle, nlohmann::json& j, AssetDatabase& adb) {
+        Guid guid = adb.get_guid(handle);
+        j = guid.to_string();
+    }
+
+    template<typename T>
+    void deserialize_handle(Handle<T>& handle, const nlohmann::json& j, ResourceRegistry& registry) {
+        Guid guid = Guid::from_string(j.get<std::string>());
+        handle = registry.get_or_load<T>(guid);
+    }
+#endif
+
+#if 0
+    entt::meta<BehaviorScript>()
+        .type("BehaviorScript"_hs).prop(display_name_hs, "BehaviorScript")
+
+        .data<&BehaviorScript::identifier>("identifier"_hs)
+        .prop(display_name_hs, "identifier")
+        .prop(readonly_hs, true)
+
+        .data<&BehaviorScript::path>("path"_hs)
+        .prop(display_name_hs, "path")
+        .prop(readonly_hs, true)
+
+        // sol stuff
+        .data<&BehaviorScript::self/*, entt::as_ref_t*/>("self"_hs).prop(display_name_hs, "self")
+        .data<&BehaviorScript::update/*, entt::as_ref_t*/>("update"_hs).prop(display_name_hs, "update")
+        .data<&BehaviorScript::on_collision/*, entt::as_ref_t*/>("on_collision"_hs).prop(display_name_hs, "on_collision")
+
+        // inspect_hs
+        // We have this, and not one for sol::table, so that when a sol::table if edited,
+        // a deep copy of BehaviorScript is made, and not just the sol::table
+        .func < [](void* ptr, Editor::InspectorState& inspector) {return Editor::inspect_type(*static_cast<BehaviorScript*>(ptr), inspector); } > (inspect_hs)
+
+        // clone
+        .func<&copy_BehaviorScript>(clone_hs)
+
+        // to_json
+        .func<&BehaviorScript_to_json>(to_json_hs)
+
+        // from_json
+        .func<&BehaviorScript_from_json>(from_json_hs)
+        ;
+#endif
+
+    void register_meta_types()
+    {
+        // === REGISTRATION ===
+
+        // + Handle
+
+        entt::meta_factory<MockResource1>{}
+        .type("MockResource1"_hs)
+            .custom<TypeMetaInfo>(TypeMetaInfo{ "MockResource1", "This is a mock resource type." })
+
+            // Register member 'x' with DisplayInfo and DataFlags
+            .data<&MockResource1::x>("x"_hs)
+            .custom<DataMetaInfo>(DataMetaInfo{ "x", "An integer member 'x'" })
+            .traits(MetaFlags::read_only)
+
+            // Register member 'y' with DisplayInfo and multiple DataFlags
+            .data<&MockResource1::y>("y"_hs)
+            .custom<DataMetaInfo>(DataMetaInfo{ "y", "A float member 'y'" })
+            .traits(MetaFlags::hidden | MetaFlags::read_only);
+
+        
+    }
+
+} // namespace eeng

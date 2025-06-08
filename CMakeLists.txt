@@ -31,6 +31,8 @@ endif()
 
 # 'target_include_directories' if target specific
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/meta)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/resources)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/util)
 
 #
@@ -213,6 +215,7 @@ add_executable(Module1
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ResourceRegistry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AssimpImporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util/Profiler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/meta/MetaReg.cpp
     )
 
 set_target_properties(Module1 PROPERTIES
