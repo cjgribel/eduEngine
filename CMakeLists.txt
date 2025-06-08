@@ -175,6 +175,17 @@ include_directories(${imgui_SOURCE_DIR}/backends)
 message(STATUS "Dear ImGui fetched and included")
 
 #
+# Fetch nlohmann
+#
+# Fetch nlohmann/json library
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+#
 # Targets
 #
 
@@ -213,6 +224,7 @@ target_link_libraries(Module1 PRIVATE
     assimp 
     libglew_static 
     glm::glm 
+    nlohmann_json::nlohmann_json
     ${OPENGL_LIBRARIES})
 if (TARGET ZLIB::ZLIB)
     target_link_libraries(Module1 PRIVATE ZLIB::ZLIB)
