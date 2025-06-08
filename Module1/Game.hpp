@@ -11,21 +11,25 @@
 #include "ShapeRenderer.hpp"
 #include "ResourceRegistry.hpp"
 
+#if 0
 // #define SPONZA_PATH "assets/crytek-sponza_hansen/sponza.obj"
 #define CHARACTER_PATH "assets/Ultimate Platformer Pack/Character/Character.fbx"
 #define CHARACTER_ANIM 0
 #define ENEMY_PATH "assets/Ultimate Platformer Pack/Enemies/Enemy.fbx"
 #define ENEMY_ANIM 0
 #define EXORED_PATH "assets/ExoRed/exo_red.fbx"
-#define EXORED_ANIM 0
-//#define EVE_PATH "assets/Eve/Eve By J.Gonzales.fbx"
-#define EVE_ANIM -1
+#define EXORED_ANIM0_PATH "assets/ExoRed/idle.fbx"
+#define EXORED_ANIM 1
+#define EVE_PATH "assets/Eve/Eve By J.Gonzales.fbx"
+#define EVE_ANIM0_PATH "assets/Eve/walking.fbx"
+#define EVE_ANIM 1
 #define MANNEQUIN_PATH "assets/UEMannequin/SK_Mannequin_tex.FBX"
-#define MANNEQUIN_PATH_ANIM1_PATH "assets/UEMannequin/Anim_Stand_Idle_PreviewMesh.fbx"
+#define MANNEQUIN_ANIM0_PATH "assets/UEMannequin/Anim_Stand_Idle_PreviewMesh.fbx"
 #define MANNEQUIN_ANIM 0
 #define UE5QUINN_PATH "assets/UE5_Mannequin/SKM_Quinn_tex.fbx"
-#define UE5QUINN_ANIM1_PATH "assets/UE5_Mannequin/MF_Idle.fbx"
+#define UE5QUINN_ANIM0_PATH "assets/UE5_Mannequin/MF_Idle.fbx"
 #define UE5QUINN_ANIM 0
+#endif
 
 /// @brief A Game may hold, update and render 3D geometry and GUI elements
 class Game : public eeng::GameBase

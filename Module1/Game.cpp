@@ -8,6 +8,18 @@
 // --> ENGINE API
 #include "AssimpImporter.hpp"
 
+namespace {
+    // Log all registered resource types
+    void logRegisteredResourceTypes(eeng::ResourceRegistry& registry)
+    {
+        eeng::Log("Registered resource types");
+        eeng::Log("Meshes:");
+        registry.for_all<eeng::Mesh>([](eeng::Mesh& m) {
+            eeng::Log("Mesh value %zu", m.x);
+        });
+    }
+}
+
 bool Game::init()
 {
     forwardRenderer = std::make_shared<eeng::ForwardRenderer>();
@@ -17,18 +29,31 @@ bool Game::init()
     shapeRenderer->init();
 
     // RESOURCE REGISTRY TEST
-    {   
-        // + concurrent load
-        
-        using namespace eeng;
-        ResourceRegistry registry;
-        Handle<Mesh> h = registry.add<Mesh>();
-        // registry.retain(h); // 
-        auto& mesh = registry.get(h);
-        // registry.release(h); // ???
-        
-        // + remove resource
-        // resource_registry->remove(h1);
+    {
+        // "Import"
+        // Importer assigns resource GUID
+        // Could be concurrently
+        eeng::Mesh mesh1, mesh2;
+        mesh1.x = 0; mesh2.x = 1;
+
+        eeng::ResourceRegistry registry;
+        auto h1 = registry.add<eeng::Mesh>(mesh1);
+        auto h2 = registry.add<eeng::Mesh>(mesh2);
+
+        {
+            auto& mesh = registry.get(h1);
+            mesh.x = 10;
+            auto& mesh2 = registry.get(h2);
+            mesh2.x = 20;
+        }
+
+        logRegisteredResourceTypes(registry);
+
+        registry.release(h1); // decrease ref count; if zero, free resource
+        registry.release(h2); // decrease ref count; if zero, free resource
+        // registry.remove(h); // 
+
+        logRegisteredResourceTypes(registry);
     }
 
     // Do some entt stuff
@@ -66,7 +91,7 @@ bool Game::init()
     // Remove root motion
     characterMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
-#if 0
+#if 1
     // Amy 5.0.1 PACK FBX
     characterMesh->load("assets/Amy/Ch46_nonPBR.fbx");
     characterMesh->load("assets/Amy/idle.fbx", true);
@@ -74,7 +99,7 @@ bool Game::init()
     // Remove root motion
     characterMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
-#if 1
+#if 0
     // Eve 5.0.1 PACK FBX
     // Fix for assimp 5.0.1 (https://github.com/assimp/assimp/issues/4486)
     // FBXConverter.cpp, line 648: 
@@ -92,29 +117,33 @@ bool Game::init()
 #endif
 #ifdef CHARACTER_PATH
     qcharacterMesh = std::make_shared<eeng::RenderableMesh>();
-    qcharacterMesh->load(CHARACTER_PATH, false);
+    qcharacterMesh->load(CHARACTER_PATH);
 #endif
 #ifdef ENEMY_PATH
     enemyMesh = std::make_shared<eeng::RenderableMesh>();
-    enemyMesh->load(ENEMY_PATH, false);
+    enemyMesh->load(ENEMY_PATH);
 #endif
 #ifdef EXORED_PATH
     exoredMesh = std::make_shared<eeng::RenderableMesh>();
-    exoredMesh->load(EXORED_PATH, false);
+    exoredMesh->load(EXORED_PATH);
+    exoredMesh->load(EXORED_ANIM0_PATH, true);
+    exoredMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
 #ifdef EVE_PATH
     eveMesh = std::make_shared<eeng::RenderableMesh>();
-    eveMesh->load(EVE_PATH, false);
+    eveMesh->load(EVE_PATH);
+    eveMesh->load(EVE_ANIM0_PATH, true);
+    eveMesh->removeTranslationKeys("mixamorig:Hips");
 #endif
 #ifdef MANNEQUIN_PATH
     mannequinMesh = std::make_shared<eeng::RenderableMesh>();
-    mannequinMesh->load(MANNEQUIN_PATH, false);
-    mannequinMesh->load(MANNEQUIN_PATH_ANIM1_PATH, true);
+    mannequinMesh->load(MANNEQUIN_PATH);
+    mannequinMesh->load(MANNEQUIN_ANIM0_PATH, true);
 #endif
 #ifdef UE5QUINN_PATH
     ue5quinnMesh = std::make_shared<eeng::RenderableMesh>();
-    ue5quinnMesh->load(UE5QUINN_PATH, false);
-    ue5quinnMesh->load(UE5QUINN_ANIM1_PATH, true);
+    ue5quinnMesh->load(UE5QUINN_PATH);
+    ue5quinnMesh->load(UE5QUINN_ANIM0_PATH, true);
 #endif
 
     grassWorldMatrix = glm_aux::TRS(
@@ -299,7 +328,7 @@ void Game::render(
     // Draw shape batches
     shapeRenderer->render(matrices.P * matrices.V);
     shapeRenderer->post_render();
-    }
+}
 
 void Game::renderUI()
 {
