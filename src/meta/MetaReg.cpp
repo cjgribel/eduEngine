@@ -55,20 +55,6 @@ namespace eeng {
 #endif
 
 #if 0
-    template<typename T>
-    void serialize_handle(const Handle<T>& handle, nlohmann::json& j, AssetDatabase& adb) {
-        Guid guid = adb.get_guid(handle);
-        j = guid.to_string();
-    }
-
-    template<typename T>
-    void deserialize_handle(Handle<T>& handle, const nlohmann::json& j, ResourceRegistry& registry) {
-        Guid guid = Guid::from_string(j.get<std::string>());
-        handle = registry.get_or_load<T>(guid);
-    }
-#endif
-
-#if 0
     entt::meta<BehaviorScript>()
         .type("BehaviorScript"_hs).prop(display_name_hs, "BehaviorScript")
 
@@ -101,11 +87,51 @@ namespace eeng {
         ;
 #endif
 
+    namespace
+    {
+        // class AssetDatabase;
+
+        // template<typename T>
+        // void serialize_handle(
+        //     const Handle<T>& handle,
+        //     nlohmann::json& j,
+        //     AssetDatabase& adb)
+        // {
+        //     Guid guid = adb.get_guid(handle);
+        //     j = guid.to_string();
+        // }
+
+        // template<typename T>
+        // void deserialize_handle(
+        //     Handle<T>& handle,
+        //     const nlohmann::json& j,
+        //     AssetDatabase& registry)
+        // {
+        //     Guid guid = Guid::from_string(j.get<std::string>());
+        //     handle = registry.get_or_load<T>(guid);
+        // }
+
+        template<typename T>
+        void register_handle(const std::string& name)
+        {
+            using handle_type = Handle<T>;
+
+            entt::meta_factory<handle_type>()
+                .type(entt::hashed_string{ name.c_str() })
+                //.type(entt::hashed_string::value(name.c_str()))
+                // .template func<&serialize_handle<T>>("serialize"_hs)
+                // .template func<&deserialize_handle<T>>("deserialize"_hs)
+                ;
+        }
+    }
+
     void register_meta_types()
     {
         // === REGISTRATION ===
 
         // + Handle
+        register_handle<MockResource1>("Handle<MockResource1>");
+        // register_handle<MockResource2>("MockResource2");
 
         entt::meta_factory<MockResource1>{}
         .type("MockResource1"_hs)
@@ -120,8 +146,6 @@ namespace eeng {
             .data<&MockResource1::y>("y"_hs)
             .custom<DataMetaInfo>(DataMetaInfo{ "y", "A float member 'y'" })
             .traits(MetaFlags::hidden | MetaFlags::read_only);
-
-        
     }
 
 } // namespace eeng

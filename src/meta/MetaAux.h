@@ -12,8 +12,10 @@
 #include <tuple>
 #include <utility>
 #include <cassert>
-#include "meta_literals.h"
+#include "MetaLiterals.h"
+#include "MetaInfo.h"
 
+#if 0
 namespace internal {
 
     template<typename T, typename Callable>
@@ -148,40 +150,32 @@ inline Type get_meta_data_prop(const entt::meta_data& data, const entt::id_type&
             return *ptr;
     return Default;
 }
+#endif
 
-// Return a copy of an enum value, converted to the underlying enum type
-// meta_type: enum type
-// any: enum instance
-// Note: if any is not const, allow_cast will convert in-place and
-//      return a bool instead of a new any
 inline auto cast_to_underlying_type(const entt::meta_type& meta_type, const entt::meta_any& enum_any)
 {
-    auto underlying_type = meta_type.prop("underlying_meta_type"_hs).value().cast<entt::meta_type>();
-    return enum_any.allow_cast(underlying_type);
-};
+    assert(meta_type.is_enum());
+    eeng::EnumMetaInfo* enum_info = meta_type.custom();
+    assert(enum_info);
+    assert(enum_info->underlying_type);
+    return enum_any.allow_cast(enum_info->underlying_type);
+}
 
-/// @brief 
-/// @param enum_any 
-/// @return 
 inline auto gather_meta_enum_entries(const entt::meta_any enum_any)
 {
     entt::meta_type meta_type = entt::resolve(enum_any.type().id());
     assert(meta_type);
     assert(meta_type.is_enum());
-
     std::vector<std::pair<const std::string, const entt::meta_any>> entries;
 
-    for (auto&& [id, meta_data] : meta_type.data())
+    for (auto [id_type, meta_data] : meta_type.data())
     {
-        // Name of data member
-        auto display_name = meta_data.prop(display_name_hs).value().cast<const char*>();
-
-        // Value of data member
-        auto data_any = meta_data.get(enum_any);
-
+        eeng::DataMetaInfo* data_info = meta_data.custom();
+        assert(data_info);
+        
         entries.push_back({
-            std::string(display_name),
-            cast_to_underlying_type(meta_type, data_any)
+            data_info->display_name,
+            cast_to_underlying_type(meta_type, meta_data.get(enum_any))
             });
     }
     return entries;

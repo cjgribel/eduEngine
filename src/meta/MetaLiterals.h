@@ -1,10 +1,5 @@
-//
-//  meta_literals.h
-//  cppmisc
-//
-//  Created by Carl Johan Gribel on 2024-08-11.
-//  Copyright © 2024 Carl Johan Gribel. All rights reserved.
-//
+// Created by Carl Johan Gribel 2025.
+// Licensed under the MIT License. See LICENSE file for details.
 
 #ifndef meta_literals_h
 #define meta_literals_h
@@ -13,19 +8,19 @@
 
 using namespace entt::literals;
 
-constexpr entt::hashed_string display_name_hs = "display_name"_hs;
+//constexpr entt::hashed_string display_name_hs = "display_name"_hs;
 
 constexpr entt::hashed_string to_string_hs = "to_string"_hs;
 
 constexpr entt::hashed_string clone_hs = "clone"_hs;
 
-constexpr entt::hashed_string to_json_hs = "to_json"_hs;
-constexpr entt::hashed_string from_json_hs = "from_json"_hs;
+constexpr entt::hashed_string serialize_hs = "serialize"_hs;
+constexpr entt::hashed_string deserialize_hs = "deserialize"_hs;
 
 constexpr entt::hashed_string inspect_hs = "inspect"_hs;
 
-constexpr entt::hashed_string readonly_hs = "readonly"_hs;
+//constexpr entt::hashed_string readonly_hs = "readonly"_hs;
 
-constexpr bool ReadonlyDefault = false;
+//constexpr bool ReadonlyDefault = false;
 
 #endif /* meta_literals_h */

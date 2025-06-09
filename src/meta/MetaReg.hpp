@@ -5,9 +5,6 @@
 #define MetaReg_hpp
 
 #include <iostream>
-// #include <memory>
-// #include "config.h"
-// #include "GameBase.h"
 
 namespace eeng
 {

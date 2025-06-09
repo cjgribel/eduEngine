@@ -20,6 +20,13 @@ namespace eeng
         std::string tooltip;
     };
 
+    struct EnumMetaInfo
+    {
+        std::string display_name;
+        std::string tooltip;
+        entt::meta_type underlying_type;
+    };
+
     struct FuncMetaInfo
     {
         std::string display_name;
