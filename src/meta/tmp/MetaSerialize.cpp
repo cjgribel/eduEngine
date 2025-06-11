@@ -17,6 +17,21 @@
 
 namespace Meta {
 
+    /*
+        NOTE
+        Instead of using this meta registered function (which requires a 
+        temporary entity): 
+        
+            registry.get_or_emplace<Component>(entity)
+        
+        register this function instead:
+
+            template<typename T>
+            void assure_component_storage(entt::registry& registry)
+            {
+                if (!registry.storage<T>()) registry.storage<T>();
+            }
+    */
     void ensure_storage(entt::registry& registry, entt::id_type component_id)
     {
         // Check if the storage for the component exists
@@ -187,6 +202,28 @@ namespace Meta {
         return entity_json;
     }
 
+#if 0
+    std::optional<ResourceHandle> deserialize_resource(const nlohmann::json& json, AssetDatabase& db, ResourceRegistry& registry) {
+        auto type_name = json["type"].get<std::string>();
+        auto guid_str = json["guid"].get<std::string>();
+        auto type_id = entt::hashed_string::value(type_name.c_str());
+
+        if (auto meta_type = entt::resolve(type_id)) {
+            Guid guid = Guid::from_string(guid_str);
+
+            // Load resource from AssetDatabase using templated dispatch via meta-type
+            entt::meta_any resource_any = meta_type.construct();
+
+            if (deserialize_any(json["data"], resource_any)) {
+                // Register to ResourceRegistry
+                return registry.add_resource(guid, resource_any);
+            }
+        }
+
+        return std::nullopt;
+    }
+#endif
+
     nlohmann::json serialize_entities(
         Entity* entity_first,
         int count,
@@ -320,7 +357,7 @@ namespace Meta {
                 }
             }
             return;
-            }
+        }
 
         // any is not a meta type
 
@@ -402,7 +439,7 @@ namespace Meta {
             if (!res)
                 throw std::runtime_error(std::string("Unable to cast ") + meta_type_name(any.type()));
         }
-        }
+    }
 
     // deserialize_component
 
@@ -528,4 +565,4 @@ namespace Meta {
 #endif
     }
 
-    } // namespace Meta
+} // namespace Meta
