@@ -11,6 +11,18 @@ struct MockType
     int x{ 2 };
     float y{ 3.0f };
 
+    // TODO
+    // bool flag = true;
+    // debugvec3 position;
+    // std::string somestring = "Hello";
+    // // std::vector<int> vector1 = { 1, 2, 3 };
+    // std::array<int, 3> vector1 = { 1, 2, 3 };
+    // std::vector<ElementType> vector2 = { {4.0f}, {5.0f}, {6.0f} };
+    // std::map<int, float> map1 = { {7, 7.5f}, {8, 8.5f} };
+    // std::map<int, ElementType> map2 = { {9, {9.5f}}, {10, {10.5f}} };
+    // std::map<ElementType, int> map3 = { {{9.5f}, 9}, {{10.5f}, 10} };
+    // std::set<int> set1 = { 11, 12 };
+
     enum class AnEnum : int { Hello = 5, Bye = 6, Hola = 8 } an_enum{ AnEnum::Hello };
 
     // Function with value, reference, const reference, pointer, const pointer
@@ -49,7 +61,7 @@ protected:
         entt::meta_factory<MockType::AnEnum>()
             .type("AnEnum"_hs)
             .custom<EnumMetaInfo>(enum_info)
-            
+
             .data<MockType::AnEnum::Hello>("Hello"_hs)
             .custom<DataMetaInfo>(DataMetaInfo{ "Hello", "Greeting in English." })
             .traits(MetaFlags::none)
@@ -286,18 +298,10 @@ TEST_F(MetaRegistrationTest, VerifyMutateAndSumFunctionCall)
 
 TEST_F(MetaRegistrationTest, VerifyEnumMetaEntries)
 {
-    //auto enum_meta = entt::resolve<MockType::AnEnum>();
-
-    MockType::AnEnum enum_value = MockType::AnEnum::Hello;
-
+    MockType::AnEnum enum_value;;
     auto enum_entries = gather_meta_enum_entries(enum_value);
 
-    // Print the entries for debugging
-    for (const auto& [name, value] : enum_entries) {
-        std::cout << "Enum Entry: " << name << " = " << value.cast<int>() << std::endl;
-    }
-
-#if 0
+    // Verify enum names and values
     ASSERT_FALSE(enum_entries.empty()) << "No entries found for the enum";
     ASSERT_EQ(enum_entries.size(), 3) << "Expected 3 entries for the enum";
     EXPECT_EQ(enum_entries[0].first, "Hello") << "First entry should be 'Hello'";
@@ -306,109 +310,4 @@ TEST_F(MetaRegistrationTest, VerifyEnumMetaEntries)
     EXPECT_EQ(enum_entries[1].second.cast<int>(), static_cast<int>(MockType::AnEnum::Bye)) << "Second entry value should match enum value";
     EXPECT_EQ(enum_entries[2].first, "Hola") << "Third entry should be 'Hola'";
     EXPECT_EQ(enum_entries[2].second.cast<int>(), static_cast<int>(MockType::AnEnum::Hola)) << "Third entry value should match enum value";
-    // Verify that the enum type is correctly resolved
-    auto enum_type = entt::resolve<MockType::AnEnum>();
-    ASSERT_TRUE(enum_type) << "Failed to resolve MockType::AnEnum";
-    EXPECT_TRUE(enum_type.is_enum()) << "MockType::AnEnum should be an enum type";
-    // Verify that the underlying type is correct
-    auto underlying_type = enum_type.underlying_type();
-    ASSERT_TRUE(underlying_type) << "Failed to resolve underlying type of MockType::AnEnum";
-    EXPECT_EQ(underlying_type.id(), entt::resolve<int>().id()) << "Underlying type of MockType::AnEnum should be int";
-    // Verify that the enum has the expected number of entries
-    auto enum_data = enum_type.data();
-    ASSERT_EQ(enum_data.size(), 3) << "MockType::AnEnum should have 3 entries";
-    // Verify that the entries match the expected values
-    for (const auto& [id, meta_data] : enum_data) {
-        auto entry_name = id.data();
-        auto entry_value = meta_data.get(enum_value).cast<int>();
-        if (entry_name == "Hello") {
-            EXPECT_EQ(entry_value, static_cast<int>(MockType::AnEnum::Hello)) << "Entry 'Hello' should have value 5";
-        } else if (entry_name == "Bye") {
-            EXPECT_EQ(entry_value, static_cast<int>(MockType::AnEnum::Bye)) << "Entry 'Bye' should have value 6";
-        } else if (entry_name == "Hola") {
-            EXPECT_EQ(entry_value, static_cast<int>(MockType::AnEnum::Hola)) << "Entry 'Hola' should have value 8";
-        } else {
-            FAIL() << "Unexpected enum entry: " << entry_name;
-        }
-    }
-    // Verify that the enum has the expected custom metadata
-    auto enum_meta_info = enum_type.custom<EnumMetaInfo>();
-    ASSERT_TRUE(enum_meta_info) << "Failed to retrieve custom metadata for MockType::AnEnum";
-    EXPECT_EQ(enum_meta_info->display_name, "AnEnum") << "Enum display name should be 'AnEnum'";
-    EXPECT_EQ(enum_meta_info->tooltip, "AnEnum is a test enum with three values.") << "Enum tooltip should match expected value";
-    EXPECT_EQ(enum_meta_info->underlying_type.id(), entt::resolve<int>().id()) << "Enum underlying type should be int";
-    // Verify that the enum has the expected traits
-    auto enum_traits = enum_type.traits<MetaFlags>();
-    EXPECT_FALSE(any(enum_traits)) << "Enum should not have any special traits set";
-    // Verify that the enum can be cast to its underlying type
-    auto casted_value = enum_value;
-    EXPECT_EQ(casted_value, MockType::AnEnum::Hello) << "Casted enum value should match original value";
-    // Verify that the enum can be used in a switch statement
-    switch (enum_value) {
-        case MockType::AnEnum::Hello:
-            EXPECT_EQ(enum_value, MockType::AnEnum::Hello) << "Enum value should be Hello";
-            break;
-        case MockType::AnEnum::Bye:
-            FAIL() << "Enum value should not be Bye";
-            break;
-        case MockType::AnEnum::Hola:
-            FAIL() << "Enum value should not be Hola";
-            break;
-        default:
-            FAIL() << "Unexpected enum value";
-    }
-    // Verify that the enum can be used in a range-based for loop
-    for (const auto& [name, value] : enum_entries) {
-        if (name == "Hello") {
-            EXPECT_EQ(value.cast<int>(), static_cast<int>(MockType::AnEnum::Hello)) << "Entry 'Hello' should have value 5";
-        } else if (name == "Bye") {
-            EXPECT_EQ(value.cast<int>(), static_cast<int>(MockType::AnEnum::Bye)) << "Entry 'Bye' should have value 6";
-        } else if (name == "Hola") {
-            EXPECT_EQ(value.cast<int>(), static_cast<int>(MockType::AnEnum::Hola)) << "Entry 'Hola' should have value 8";
-        } else {
-            FAIL() << "Unexpected enum entry: " << name;
-        }
-    }
-    // Verify that the enum can be used with entt::meta_any
-    entt::meta_any enum_any = enum_value;
-    ASSERT_TRUE(enum_any) << "Failed to create entt::meta_any from MockType::AnEnum";
-    EXPECT_TRUE(enum_any.type().is_enum()) << "entt::meta_any should hold an enum type";
-    EXPECT_EQ(enum_any.cast<MockType::AnEnum>(), MockType::AnEnum::Hello) << "entt::meta_any should hold the correct enum value";
-    // Verify that the enum can be used with entt::meta_type
-    auto enum_meta_type = entt::resolve<MockType::AnEnum>();
-    ASSERT_TRUE(enum_meta_type) << "Failed to resolve MockType::AnEnum";
-    EXPECT_TRUE(enum_meta_type.is_enum()) << "entt::meta_type should recognize MockType::AnEnum as an enum type";
-    EXPECT_EQ(enum_meta_type.id(), entt::type_id<MockType::AnEnum>()) << "entt::meta_type should have the correct ID for MockType::AnEnum";
-    // Verify that the enum can be used with entt::meta_type::data()
-    auto enum_meta_data = enum_meta_type.data();
-    ASSERT_EQ(enum_meta_data.size(), 3) << "entt::meta_type::data() should return 3 entries for MockType::AnEnum";
-    // Verify that the enum can be used with entt::meta_type::func()
-    auto enum_meta_func = enum_meta_type.func("Hello"_hs);
-    ASSERT_TRUE(enum_meta_func) << "Failed to resolve 'Hello' function for MockType::AnEnum";
-    EXPECT_TRUE(enum_meta_func.is_const()) << "'Hello' function should be const";
-    EXPECT_EQ(enum_meta_func.invoke(enum_value).cast<int>(), static_cast<int>(MockType::AnEnum::Hello)) << "'Hello' function should return the correct enum value";
-    // Verify that the enum can be used with entt::meta_type::lookup()
-    auto lookup_func = enum_meta_type.lookup("Hello"_hs);
-    ASSERT_TRUE(lookup_func) << "Failed to lookup 'Hello' function in MockType::AnEnum";
-    EXPECT_TRUE(lookup_func.is_const()) << "'Hello' function should be const";
-    EXPECT_EQ(lookup_func.invoke(enum_value).cast<int>(), static_cast<int>(MockType::AnEnum::Hello)) << "'Hello' function should return the correct enum value";
-    // Verify that the enum can be used with entt::meta_type::type()
-    auto enum_type = enum_meta_type.type();
-    ASSERT_TRUE(enum_type) << "Failed to resolve type for MockType::AnEnum";
-    EXPECT_TRUE(enum_type.is_enum()) << "entt::meta_type::type() should recognize MockType::AnEnum as an enum type";
-    EXPECT_EQ(enum_type.id(), entt::type_id<MockType::AnEnum>()) << "entt::meta_type::type() should have the correct ID for MockType::AnEnum";
-    // Verify that the enum can be used with entt::meta_type::underlying_type()
-    auto underlying_enum_type = enum_meta_type.underlying_type();
-    ASSERT_TRUE(underlying_enum_type) << "Failed to resolve underlying type for MockType::AnEnum";
-    EXPECT_EQ(underlying_enum_type.id(), entt::type_id<int>()) << "entt::meta_type::underlying_type() should return int for MockType::AnEnum";
-    // Verify that the enum can be used with entt::meta_type::traits()
-    auto enum_traits = enum_meta_type.traits<MetaFlags>();
-    EXPECT_FALSE(any(enum_traits)) << "entt::meta_type::traits() should not have any special traits set for MockType::AnEnum";
-    // Verify that the enum can be used with entt::meta_type::custom()
-    auto enum_custom_info = enum_meta_type.custom<EnumMetaInfo>();
-    ASSERT_TRUE(enum_custom_info) << "Failed to retrieve custom metadata for MockType::AnEnum";
-    EXPECT_EQ(enum_custom_info->display_name, "AnEnum") << "entt::meta_type::custom() should return the correct display name for MockType::AnEnum";
-    EXPECT_EQ(enum_custom_info->tooltip, "AnEnum is a test enum with three values.") << "entt::meta_type::custom() should return the correct tooltip for MockType::AnEnum";
-    EXPECT_EQ(enum_custom_info->underlying_type.id(), entt::type_id<int>()) << "entt::meta_type::custom() should return the correct underlying type for MockType::AnEnum";
-#endif
 }
