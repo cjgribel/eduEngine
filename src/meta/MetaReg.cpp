@@ -127,11 +127,12 @@ namespace eeng {
 
     void register_meta_types()
     {
-        // === REGISTRATION ===
+        // === handles ===
 
-        // + Handle
         register_handle<MockResource1>("Handle<MockResource1>");
-        // register_handle<MockResource2>("MockResource2");
+        register_handle<MockResource2>("Handle<MockResource2>");
+
+        // === MockResource1 ===
 
         entt::meta_factory<MockResource1>{}
         .type("MockResource1"_hs)
