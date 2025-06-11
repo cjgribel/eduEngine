@@ -161,7 +161,7 @@ inline auto cast_to_underlying_type(const entt::meta_type& meta_type, const entt
     return enum_any.allow_cast(enum_info->underlying_type);
 }
 
-inline auto gather_meta_enum_entries(const entt::meta_any enum_any)
+inline auto gather_meta_enum_entries(const entt::meta_any& enum_any)
 {
     entt::meta_type meta_type = entt::resolve(enum_any.type().id());
     assert(meta_type);
