@@ -1,4 +1,6 @@
-// ResourceRegistry.hpp
+// Created by Carl Johan Gribel 2025.
+// Licensed under the MIT License. See LICENSE file for details.
+
 #pragma once
 #include <cstdint>
 #include <limits>
@@ -109,14 +111,23 @@ namespace eeng
         }
 
         template<typename... Args>
-        Handle add(Args&&... args)
+        Handle add(const Guid& guid, Args&&... args)
         {
             std::lock_guard lock(m_mutex);
+
+            if (guid == Guid::invalid())
+                throw std::runtime_error("Cannot add resource with invalid GUID");
+            if (m_guid_map.find(guid) != m_guid_map.end())
+                throw std::runtime_error("Resource with this GUID already exists");
 
             Handle h = m_pool.create<T>(std::forward<Args>(args)...);
             ensure_metadata(h);
             m_versions.versionify(h);
             m_ref_counts[h.ofs / sizeof(T)] = 1;
+
+            m_guid_map[guid] = h;
+            m_handle_to_guid[h] = guid;
+
             return h;
         }
 
@@ -193,12 +204,12 @@ namespace eeng
             return Guid::invalid();
         }
 
-        void bind_guid(Handle h, Guid guid)
-        {
-            std::lock_guard lock(m_mutex);
-            m_guid_map[guid] = h;
-            m_handle_to_guid[h] = guid;
-        }
+        // void bind_guid(Handle h, Guid guid)
+        // {
+        //     std::lock_guard lock(m_mutex);
+        //     m_guid_map[guid] = h;
+        //     m_handle_to_guid[h] = guid;
+        // }
 
         Handle find_by_guid(Guid guid) const
         {
@@ -242,9 +253,9 @@ namespace eeng
     {
     public:
         template<typename T, typename... Args>
-        Handle<T> add(Args&&... args)
+        Handle<T> add(const Guid& guid, Args&&... args)
         {
-            return get_or_create_pool<T>()->add(std::forward<Args>(args)...);
+            return get_or_create_pool<T>()->add(guid, std::forward<Args>(args)...);
         }
 
         template<typename T>
@@ -295,11 +306,11 @@ namespace eeng
             return get_pool<T>()->find_by_guid(guid);
         }
 
-        template<typename T>
-        void bind_guid(Handle<T> h, Guid g)
-        {
-            get_pool<T>()->bind_guid(h, g);
-        }
+        // template<typename T>
+        // void bind_guid(Handle<T> h, Guid g)
+        // {
+        //     get_pool<T>()->bind_guid(h, g);
+        // }
 
     private:
         std::unordered_map<std::type_index, std::unique_ptr<IResourcePool>> pools;
