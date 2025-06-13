@@ -1,14 +1,10 @@
-//
-//  memaux.h
-//  oengine
-//
-//  Created by Carl Johan Gribel on 2023-09-20.
-//  Copyright © 2023 Carl Johan Gribel. All rights reserved.
-//
+// Created by Carl Johan Gribel 2022-2025.
+// Licensed under the MIT License. See LICENSE file for details.
 
 #ifndef memaux_h
 #define memaux_h
 
+// std::max_align_t is the maximum alignment required for any type in the C++ standard library.
 #define PoolMinAlignment alignof(std::max_align_t)
 
 inline void aligned_alloc(void** ptr,

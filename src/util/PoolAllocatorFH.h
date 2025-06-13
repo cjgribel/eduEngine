@@ -1,8 +1,8 @@
 // Created by Carl Johan Gribel 2022-2025.
 // Licensed under the MIT License. See LICENSE file for details.
 
-#ifndef FreelistPool_h
-#define FreelistPool_h
+#ifndef PoolAllocatorFH_h
+#define PoolAllocatorFH_h
 
 #include <typeindex> // std::type_index
 #include <cassert>
@@ -19,15 +19,17 @@
 
 namespace eeng {
 
-    // --- FreelistPool v3 2025 ------------------------------------------------
+    // --- PoolAllocator (Freelist, Handle) 2025 -------------------------------
 
     // Runtime Type-Safe, Not Statically Type-Safe
 
     // * Raw memory allocator with alignment
-    // * No type template - type is provided separately to create / destroy / get
+    // * Runtime type-safe
+    //   No type template - type is provided separately to create / destroy / get
     //      It is the responsibility of the user to always use the same type
     // * Embedded singly-linked free-list
     // * Can expand & reallocate
+    // * Can reset but not shrink
 
     struct TypeInfo
     {
@@ -41,7 +43,7 @@ namespace eeng {
         }
     };
 
-    class FreelistPool
+    class PoolAllocatorFH
     {
         using index_type = std::size_t;
 
@@ -58,25 +60,23 @@ namespace eeng {
 
         inline void assert_index(index_type index) const
         {
-            //        assert(!index || (index < m_capacity));
-            //        assert(index % m_elem_size == 0);
-
-                    // Could check if handle index is not part of the free-list,
-                    // but registry performs this check via the handle version
+            assert(index != m_index_null);
+            assert(index < m_capacity);
+            assert(index % m_type_info.size == 0);
         }
 
         template<class T>
         inline T* ptr_at(void* ptr, index_type index)
         {
             assert_index(index);
-            return reinterpret_cast<T*>((char*)ptr + index);
+            return reinterpret_cast<T*>(static_cast<char*>(ptr) + index);
         }
 
         template<class T>
-        inline T* ptr_at(void* ptr, index_type index) const
+        inline const T* ptr_at(void* ptr, index_type index) const
         {
             assert_index(index);
-            return reinterpret_cast<T*>((char*)ptr + index);
+            return reinterpret_cast<const T*>(static_cast<char*>(ptr) + index);
         }
 
         template<class T>
@@ -98,7 +98,7 @@ namespace eeng {
 
         //    FreelistPool2() = default;
 
-        FreelistPool(
+        PoolAllocatorFH(
             const TypeInfo type_info,
             size_t pool_alignment = PoolMinAlignment) :
             m_type_info(type_info),
@@ -142,7 +142,7 @@ namespace eeng {
         //    FreelistPool2(const FreelistPool2&) = delete;
         //    FreelistPool2& operator=(const FreelistPool2&) = delete;
 
-        ~FreelistPool()
+        ~PoolAllocatorFH()
         {
             if (m_pool)
                 aligned_free(&m_pool);
@@ -188,6 +188,7 @@ namespace eeng {
         void destroy(Handle<T> handle)
         {
             std::lock_guard lock(m_mutex);
+            assert(handle);
             assert(m_type_info.index == std::type_index(typeid(T)));
 
             T* elem_ptr = ptr_at<T>(m_pool, handle.ofs);
@@ -220,6 +221,7 @@ namespace eeng {
         T& get(Handle<T> handle) const
         {
             std::lock_guard lock(m_mutex);
+
             assert(m_type_info.index == std::type_index(typeid(T)));
 
             return *ptr_at<T>(m_pool, handle.ofs);
@@ -238,11 +240,11 @@ namespace eeng {
 
         void dump_pool() const
         {
-            std::lock_guard lock(m_mutex);
-
             // Print all elements.
             // [x] = used element
             // [i] = free element pointing to next free element at index i
+            std::lock_guard lock(m_mutex);
+
             std::cout << "Pool " << "(" << capacity() / m_type_info.size << "): ";
             for (index_type index = 0; index < m_capacity; index += m_type_info.size)
             {

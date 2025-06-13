@@ -23,7 +23,7 @@
 
 #include "Handle.h"
 #include "Guid.h"
-#include "FreelistPool.h"
+#include "PoolAllocatorFH.h"
 // #include "Texture.hpp"
 
 namespace eeng
@@ -238,7 +238,7 @@ namespace eeng
             }
         }
 
-        FreelistPool m_pool;
+        PoolAllocatorFH m_pool;
         VersionMap<T> m_versions;
         std::vector<uint32_t> m_ref_counts;
 
@@ -348,5 +348,6 @@ namespace eeng
             return static_cast<ResourcePool<T>*>(it->second.get());
         }
     };
+
 } // namespace eeng
 

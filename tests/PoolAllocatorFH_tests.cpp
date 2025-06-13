@@ -2,50 +2,57 @@
 #include <thread>
 #include <atomic>
 
-#include "FreelistPool.h"
+#include "PoolAllocatorFH.h"
 #include "Handle.h"
 
 using namespace eeng;
 
-// Test struct for move semantics
-struct MoveTest {
-    static std::atomic<int> constructions;
-    static std::atomic<int> destructions;
-    int value;
-    char padding[sizeof(std::size_t)]; // Ensure object is large enough for freelist
+namespace {
+    // Test struct for move semantics
+    struct MoveTest {
+        static std::atomic<int> constructions;
+        static std::atomic<int> destructions;
+        int value;
+        char padding[sizeof(std::size_t)]; // Ensure object is large enough for freelist
 
-    MoveTest(int val) : value(val) { ++constructions; }
-    MoveTest(const MoveTest&) = delete;
-    MoveTest(MoveTest&& other) noexcept : value(other.value) { other.value = -1; ++constructions; }
-    ~MoveTest() { ++destructions; }
+        MoveTest(int val) : value(val) { ++constructions; }
+        MoveTest(const MoveTest&) = delete;
+        MoveTest(MoveTest&& other) noexcept : value(other.value) { other.value = -1; ++constructions; }
+        ~MoveTest() { ++destructions; }
 
-    static void reset() {
-        constructions.store(0, std::memory_order_relaxed);
-        destructions.store(0, std::memory_order_relaxed);
+        static void reset() {
+            constructions.store(0, std::memory_order_relaxed);
+            destructions.store(0, std::memory_order_relaxed);
+        }
+    };
+
+    std::atomic<int> MoveTest::constructions = 0;
+    std::atomic<int> MoveTest::destructions = 0;
+
+    static bool is_aligned(void* ptr, std::size_t align)
+    {
+        return (reinterpret_cast<uintptr_t>(ptr) % align) == 0;
     }
-};
-
-std::atomic<int> MoveTest::constructions = 0;
-std::atomic<int> MoveTest::destructions = 0;
+}
 
 // Fixture
-class RawFreelistPoolTest : public ::testing::Test
+class PoolAllocatorFHTest : public ::testing::Test
 {
 protected:
     TypeInfo type_info = TypeInfo::create<MoveTest>();
-    FreelistPool pool{ type_info, 16 };
+    PoolAllocatorFH pool{ type_info, 16 };
 
     void SetUp() override {
         MoveTest::reset();
     }
 };
 
-TEST_F(RawFreelistPoolTest, InitialCapacityIsZero)
+TEST_F(PoolAllocatorFHTest, InitialCapacityIsZero)
 {
     EXPECT_EQ(pool.capacity(), 0u);
 }
 
-TEST_F(RawFreelistPoolTest, CreateSingleElement)
+TEST_F(PoolAllocatorFHTest, CreateSingleElement)
 {
     auto handle = pool.create<MoveTest>(42);
     auto& elem = pool.get(handle);
@@ -54,7 +61,7 @@ TEST_F(RawFreelistPoolTest, CreateSingleElement)
     EXPECT_EQ(MoveTest::constructions, 1);
 }
 
-TEST_F(RawFreelistPoolTest, DestroyElement)
+TEST_F(PoolAllocatorFHTest, DestroyElement)
 {
     auto handle = pool.create<MoveTest>(10);
     pool.destroy(handle);
@@ -63,7 +70,7 @@ TEST_F(RawFreelistPoolTest, DestroyElement)
     EXPECT_EQ(MoveTest::destructions, 1);
 }
 
-TEST_F(RawFreelistPoolTest, PoolExpandsWhenFull)
+TEST_F(PoolAllocatorFHTest, PoolExpandsWhenFull)
 {
     const int elements_to_create = 50;  // Ensure pool expansion
 
@@ -79,7 +86,7 @@ TEST_F(RawFreelistPoolTest, PoolExpandsWhenFull)
         EXPECT_EQ(pool.get(handles[i]).value, i);
 }
 
-TEST_F(RawFreelistPoolTest, FreelistReuse)
+TEST_F(PoolAllocatorFHTest, FreelistReuse)
 {
     auto handle1 = pool.create<MoveTest>(1);
     auto handle2 = pool.create<MoveTest>(2);
@@ -92,7 +99,7 @@ TEST_F(RawFreelistPoolTest, FreelistReuse)
     EXPECT_EQ(handle1.ofs, handle3.ofs);
 }
 
-TEST_F(RawFreelistPoolTest, MoveSemanticsOnExpansion)
+TEST_F(PoolAllocatorFHTest, MoveSemanticsOnExpansion)
 {
     auto handle1 = pool.create<MoveTest>(100);
 
@@ -107,7 +114,7 @@ TEST_F(RawFreelistPoolTest, MoveSemanticsOnExpansion)
     EXPECT_EQ(pool.get(handle1).value, 100);
 }
 
-TEST_F(RawFreelistPoolTest, CountFree)
+TEST_F(PoolAllocatorFHTest, CountFree)
 {
     EXPECT_EQ(pool.count_free(), 0);
 
@@ -121,7 +128,7 @@ TEST_F(RawFreelistPoolTest, CountFree)
     EXPECT_EQ(pool.count_free(), 2);
 }
 
-TEST_F(RawFreelistPoolTest, UsedVisitor)
+TEST_F(PoolAllocatorFHTest, UsedVisitor)
 {
     auto handle1 = pool.create<MoveTest>(7);
     auto handle2 = pool.create<MoveTest>(14);
@@ -136,7 +143,7 @@ TEST_F(RawFreelistPoolTest, UsedVisitor)
     EXPECT_EQ(sum, 14);
 }
 
-TEST_F(RawFreelistPoolTest, DumpPoolDebug)
+TEST_F(PoolAllocatorFHTest, DumpPoolDebug)
 {
     // Just for visual/manual inspection; should not crash
     pool.create<MoveTest>(123);
@@ -149,33 +156,33 @@ TEST_F(RawFreelistPoolTest, DumpPoolDebug)
     EXPECT_FALSE(output.empty());
 }
 
-TEST_F(RawFreelistPoolTest, TypeMismatchAssert)
+TEST_F(PoolAllocatorFHTest, TypeMismatchAssert)
 {
 #ifndef NDEBUG
     ASSERT_DEATH({ pool.create<int>(42); }, "");
 #endif
 }
 
-TEST(FreelistPoolTest, RejectsTooSmallType)
+TEST_F(PoolAllocatorFHTest, RejectsTooSmallType)
 {
     struct Tiny { char x; };
 
 #ifndef NDEBUG
     ASSERT_DEATH(
         [] {
-            FreelistPool p(TypeInfo::create<Tiny>(), 16);
+            PoolAllocatorFH p(TypeInfo::create<Tiny>(), 16);
             (void)p;
         }(), "");
 #endif
 }
 
-TEST(FreelistPoolTest, ThreadSafetyCreateDestroy)
+TEST_F(PoolAllocatorFHTest, ThreadSafetyCreateDestroy)
 {
     const int thread_count = 8;
     const int iterations_per_thread = 1000;
 
     TypeInfo type_info = TypeInfo::create<MoveTest>();
-    FreelistPool pool(type_info, 16);
+    PoolAllocatorFH pool(type_info, 16);
     MoveTest::reset();
 
     std::vector<std::thread> threads;
@@ -202,4 +209,38 @@ TEST(FreelistPoolTest, ThreadSafetyCreateDestroy)
     EXPECT_GE(MoveTest::constructions.load(), thread_count * iterations_per_thread);
     EXPECT_EQ(MoveTest::constructions.load(), MoveTest::destructions.load());
 
+}
+
+TEST_F(PoolAllocatorFHTest, RespectsNaturalAlignment) 
+{
+    // a type with natural alignment 64
+    struct alignas(64) Aligned64 { int x; };
+
+    // construct with TypeInfo and desired alignment == alignof(Aligned64)
+    PoolAllocatorFH pool(TypeInfo::create<Aligned64>(), /*alignment=*/ alignof(Aligned64));
+
+    // allocate one element
+    auto h = pool.create<Aligned64>(Aligned64{42});
+    auto* p = &pool.get<Aligned64>(h);
+
+    EXPECT_TRUE(is_aligned(p, alignof(Aligned64)))
+        << "pointer " << p
+        << " must be aligned to " << alignof(Aligned64);
+}
+
+// ─── Forced 256‐byte alignment ─────────────────────────────────────────────────
+
+TEST_F(PoolAllocatorFHTest, RespectsForced256Alignment) 
+{
+    // a small type (natural alignment = 1) but force to 256
+    struct Tiny { std::size_t x; };
+
+    PoolAllocatorFH pool(TypeInfo::create<Tiny>(), /*alignment=*/ 256);
+
+    auto h = pool.create<Tiny>(Tiny{0});
+    auto* p = &pool.get<Tiny>(h);
+
+    EXPECT_TRUE(is_aligned(p, 256))
+        << "pointer " << p
+        << " must be aligned to 256 bytes";
 }

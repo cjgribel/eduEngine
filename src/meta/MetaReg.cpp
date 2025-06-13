@@ -127,12 +127,20 @@ namespace eeng {
 
     void register_meta_types()
     {
-        // === handles ===
+        // === HANDLES ===
 
-        register_handle<MockResource1>("Handle<MockResource1>");
-        register_handle<MockResource2>("Handle<MockResource2>");
+        // register_handle<MockResource1>("Handle<MockResource1>");
+        // register_handle<MockResource2>("Handle<MockResource2>");
 
-        // === MockResource1 ===
+        // === RESOURCES ===
+
+        // entt::meta<Texture>()
+        //     .type("Texture"_hs)
+        //     .func<&assure_storage<Texture>>("assure_storage"_hs);
+        //
+        // + forward_as_meta
+        // auto assure_fn = entt::resolve<Texture>().func("assure_storage"_hs);
+        // assure_fn.invoke({}, registry);
 
         entt::meta_factory<MockResource1>{}
         .type("MockResource1"_hs)
