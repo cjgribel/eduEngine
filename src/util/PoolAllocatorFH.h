@@ -12,6 +12,7 @@
 #include <limits> // std::numeric_limits
 #include <algorithm> // std::copy
 #include <cstring> // std::memcpy
+#include <sstream> // std::ostringstream
 #include <stdexcept> // std::bad_alloc
 #include <mutex> // std::mutex
 #include "memaux.h"
@@ -238,29 +239,41 @@ namespace eeng {
             return index_count;
         }
 
-        void dump_pool() const
+        /// @brief Convert the pool state to a string representation.
+        /// @return A string describing the current state of the pool.
+        std::string to_string() const
         {
-            // Print all elements.
-            // [x] = used element
-            // [i] = free element pointing to next free element at index i
             std::lock_guard lock(m_mutex);
+            std::ostringstream oss;
 
-            std::cout << "Pool " << "(" << capacity() / m_type_info.size << "): ";
-            for (index_type index = 0; index < m_capacity; index += m_type_info.size)
+            // 1) Summary line
+            oss << "PoolAllocatorFH: capacity=" << (m_capacity / m_type_info.size)
+                << ", free=" << count_free()
+                << ", head=" << m_free_first
+                << "\n";
+
+            // 2) Free-list chain
+            oss << "  free-list: ";
+            index_type cur = m_free_first;
+            while (cur != m_index_null)
             {
-                bool has_index = false;
-                freelist_visitor([&](index_type i) {
-                    has_index |= (i == index);
-                    });
-
-                index_type index_next = val_at<index_type>(m_pool, index);
-                std::string index_str = (index_next == m_index_null ? "null" : std::to_string(index_next / m_type_info.size));
-                if (has_index)      std::cout << "[" << index_str << "]";
-                else                std::cout << "[x]";
+                oss << cur / m_type_info.size << " -> ";
+                cur = val_at<index_type>(m_pool, cur);
             }
-            std::cout << ". nbr free " << count_free();
-            std::cout << ". freelist head = " << m_free_first;
-            std::cout << std::endl;
+            oss << "null\n";
+
+            // 3) Layout (used vs free)
+            oss << "  layout: ";
+            for (index_type idx = 0; idx < m_capacity; idx += m_type_info.size)
+            {
+                bool isFree = false;
+                freelist_visitor([&](index_type i) { if (i == idx) isFree = true; });
+                if (isFree) oss << "[F]";
+                else       oss << "[U]";
+            }
+            oss << "\n";
+
+            return oss.str();
         }
 
         // Traverse used elements in order

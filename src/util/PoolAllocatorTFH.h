@@ -81,7 +81,7 @@ namespace eeng {
         }
 
     public:
-        PoolAllocatorTFH(size_t count = 0) 
+        explicit PoolAllocatorTFH(size_t count = 0)
             // : m_pool_alignment(Alignment)
         {
             //m_pool_alignment = align_up(pool_alignment, PoolMinAlignment);
@@ -90,11 +90,11 @@ namespace eeng {
             resize(count * element_size);
 
             //#ifdef UNIT_TESTS
-            std::cout << "Created pool(size = " << count
-                << ", pool_alignment = " << Alignment << "): " << std::endl
-                << "\tm_capacity " << m_capacity << std::endl
-                << "\telement size " << element_size << std::endl;
-                // << "\tm_pool_alignment " << Alignment << std::endl;
+            // std::cout << "Created pool(size = " << count
+            //     << ", pool_alignment = " << Alignment << "): " << std::endl
+            //     << "\tm_capacity " << m_capacity << std::endl
+            //     << "\telement size " << element_size << std::endl;
+            //     // << "\tm_pool_alignment " << Alignment << std::endl;
             //#endif
         }
 
@@ -157,7 +157,7 @@ namespace eeng {
             else
                 ::new(ptr) value_type(std::forward<Args>(args)...);
 
-            std::cout << "created Handle " << index << std::endl;
+            // std::cout << "created Handle " << index << std::endl;
             //        print_free();
 
             return Handle<value_type> { index };
@@ -215,29 +215,47 @@ namespace eeng {
             return index_count;
         }
 
-        void dump_pool() const
+        /// @brief Convert the pool state to a string representation.
+        /// @return A string describing the current state of the pool.
+        std::string to_string() const 
         {
-            // Print all elements.
-            // [x] = used element
-            // [i] = free element pointing to next free element at index i
             std::lock_guard lock(m_mutex);
+            std::ostringstream oss;
 
-            std::cout << "Pool " << "(" << capacity() / sizeof(T) << "): ";
-            for (index_type index = 0; index < m_capacity; index += sizeof(T))
+            // 1) Summary line
+            oss << "PoolAllocatorTFH: capacity=" << (m_capacity / sizeof(T))
+                << ", free=" << count_free()
+                << ", head=" << free_first
+                << "\n";
+
+            // 2) Free-list chain
+            oss << "  free-list: ";
+            index_type cur = free_first;
+            while (cur != index_null) 
             {
-                bool has_index = false;
-                freelist_visitor([&](index_type i) {
-                    has_index |= (i == index);
-                    });
-
-                index_type index_next = get_free_diff(m_pool, index);
-                std::string index_str = (index_next == index_null ? "null" : std::to_string(index_next / sizeof(T)));
-                if (has_index)      std::cout << "[" << index_str << "]"; // get_index_at(index) << "]";
-                else                std::cout << "[x]";
+                oss << cur / sizeof(T) << " -> ";
+                cur = *ptr_at<index_type>(m_pool, cur);
             }
-            std::cout << ". nbr free " << count_free();
-            std::cout << ". freelist head = " << free_first;
-            std::cout << std::endl;
+            oss << "null\n";
+
+            // 3) Layout (used vs free)
+            oss << "  layout: ";
+            for (index_type idx = 0; idx < m_capacity; idx += sizeof(T)) 
+            {
+                bool isFree = false;
+                freelist_visitor([&](index_type i) { if (i == idx) isFree = true; });
+                if (isFree) oss << "[F]";
+                else {
+                    const auto& value = *ptr_at<T>(m_pool, idx);
+                    if constexpr (requires { oss << value; })
+                        oss << "[" << value << "]";
+                    else
+                        oss << "[U]";
+                }
+            }
+            oss << "\n";
+
+            return oss.str();
         }
 
         /// @brief Visit all used elements in the pool.
@@ -330,7 +348,7 @@ namespace eeng {
             void* new_pool = nullptr;
             size_t new_capacity = size;
 
-            std::cout << "Before resize: " << std::endl; dump_pool();
+            // std::cout << "Before resize: " << std::endl; dump_pool();
 
             if (new_capacity)
             {
@@ -400,7 +418,7 @@ namespace eeng {
             expand_freelist(m_capacity, new_capacity);
             m_capacity = new_capacity;
 
-            std::cout << "After resize: " << std::endl; dump_pool();
+            // std::cout << "After resize: " << std::endl; dump_pool();
         }
 
         template<class F>

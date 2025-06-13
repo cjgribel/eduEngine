@@ -29,18 +29,16 @@ namespace {
     std::atomic<int> MoveTest::constructions = 0;
     std::atomic<int> MoveTest::destructions = 0;
 
-    static bool is_aligned(void* ptr, std::size_t align) 
+    static bool is_aligned(void* ptr, std::size_t align)
     {
         return (reinterpret_cast<uintptr_t>(ptr) % align) == 0;
     }
 }
 
-
 // Fixture
 class PoolAllocatorTFHTest : public ::testing::Test
 {
 protected:
-    // TypeInfo type_info = TypeInfo::create<MoveTest>();
     PoolAllocatorTFH<MoveTest> pool;
 
     void SetUp() override {
@@ -150,17 +148,27 @@ TEST_F(PoolAllocatorTFHTest, UsedVisitor)
     EXPECT_EQ(sum, 14);
 }
 
-TEST_F(PoolAllocatorTFHTest, DumpPoolDebug)
+TEST_F(PoolAllocatorTFHTest, ToStringIsNonEmptyAfterCreates)
 {
-    // Just for visual/manual inspection; should not crash
+    // Arrange: create a couple of elements
     pool.create(123);
     pool.create(456);
 
-    testing::internal::CaptureStdout();
-    pool.dump_pool();
-    std::string output = testing::internal::GetCapturedStdout();
+    // Act & Assert: should not throw, and the returned string must not be empty
+    EXPECT_NO_THROW({
+        auto s = pool.to_string();
+        EXPECT_FALSE(s.empty()) << "to_string() should produce at least some output";
+        });
 
-    EXPECT_FALSE(output.empty());
+    // {
+    //     PoolAllocatorTFH<size_t> pool; // Test copy constructor
+    //     pool.create(1);
+    //     pool.create(2);
+    //     pool.create(3);
+    //     pool.create(4);
+    //     pool.create(5);
+    //     std::cout << pool.to_string() << std::endl;
+    // }
 }
 
 TEST_F(PoolAllocatorTFHTest, ThreadSafetyCreateDestroy)
@@ -197,7 +205,7 @@ TEST_F(PoolAllocatorTFHTest, ThreadSafetyCreateDestroy)
 
 }
 
-TEST_F(PoolAllocatorTFHTest, RespectsNaturalAlignment) 
+TEST_F(PoolAllocatorTFHTest, RespectsNaturalAlignment)
 {
     // a type with natural alignment 64
     struct alignas(64) Aligned64 { int x; };
@@ -205,21 +213,22 @@ TEST_F(PoolAllocatorTFHTest, RespectsNaturalAlignment)
     // default Alignment = max(alignof(T), alignof(TIndex)) == 64
     PoolAllocatorTFH<Aligned64> pool(1);
 
-    auto h = pool.create(Aligned64{42});
+    auto h = pool.create(Aligned64{ 42 });
     auto* p = &pool.get(h);
 
     EXPECT_TRUE(is_aligned(p, alignof(Aligned64)))
         << "pointer " << p << " must be aligned to " << alignof(Aligned64);
 }
 
-TEST_F(PoolAllocatorTFHTest, RespectsForced256Alignment) 
+TEST_F(PoolAllocatorTFHTest, RespectsForced256Alignment)
 {
-    // a small type (natural alignment = 1) but force to 256
+    // natural alignment
     struct Tiny { size_t x; };
 
+    // force 256-byte alignment
     PoolAllocatorTFH<Tiny, std::size_t, 256> pool(1);
 
-    auto h = pool.create(Tiny{0});
+    auto h = pool.create(Tiny{ 0 });
     auto* p = &pool.get(h);
 
     EXPECT_TRUE(is_aligned(p, 256))

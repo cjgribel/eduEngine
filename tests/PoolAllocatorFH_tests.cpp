@@ -143,17 +143,19 @@ TEST_F(PoolAllocatorFHTest, UsedVisitor)
     EXPECT_EQ(sum, 14);
 }
 
-TEST_F(PoolAllocatorFHTest, DumpPoolDebug)
+TEST_F(PoolAllocatorFHTest, ToStringIsNonEmptyAfterCreates)
 {
-    // Just for visual/manual inspection; should not crash
+    // Arrange: create a couple of elements
     pool.create<MoveTest>(123);
     pool.create<MoveTest>(456);
 
-    testing::internal::CaptureStdout();
-    pool.dump_pool();
-    std::string output = testing::internal::GetCapturedStdout();
+    // Act & Assert: should not throw, and the returned string must not be empty
+    EXPECT_NO_THROW({
+        auto s = pool.to_string();
+        EXPECT_FALSE(s.empty()) << "to_string() should produce at least some output";
+    });
 
-    EXPECT_FALSE(output.empty());
+    std::cout << pool.to_string() << std::endl;
 }
 
 TEST_F(PoolAllocatorFHTest, TypeMismatchAssert)
@@ -213,11 +215,9 @@ TEST_F(PoolAllocatorFHTest, ThreadSafetyCreateDestroy)
 
 TEST_F(PoolAllocatorFHTest, RespectsNaturalAlignment) 
 {
-    // a type with natural alignment 64
     struct alignas(64) Aligned64 { int x; };
 
-    // construct with TypeInfo and desired alignment == alignof(Aligned64)
-    PoolAllocatorFH pool(TypeInfo::create<Aligned64>(), /*alignment=*/ alignof(Aligned64));
+    PoolAllocatorFH pool(TypeInfo::create<Aligned64>(), alignof(Aligned64));
 
     // allocate one element
     auto h = pool.create<Aligned64>(Aligned64{42});
@@ -228,14 +228,13 @@ TEST_F(PoolAllocatorFHTest, RespectsNaturalAlignment)
         << " must be aligned to " << alignof(Aligned64);
 }
 
-// ─── Forced 256‐byte alignment ─────────────────────────────────────────────────
-
 TEST_F(PoolAllocatorFHTest, RespectsForced256Alignment) 
 {
-    // a small type (natural alignment = 1) but force to 256
+    // natural alignment
     struct Tiny { std::size_t x; };
 
-    PoolAllocatorFH pool(TypeInfo::create<Tiny>(), /*alignment=*/ 256);
+    // force 256-byte alignment
+    PoolAllocatorFH pool(TypeInfo::create<Tiny>(), 256);
 
     auto h = pool.create<Tiny>(Tiny{0});
     auto* p = &pool.get<Tiny>(h);
