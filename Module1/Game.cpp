@@ -29,16 +29,21 @@ bool Game::init()
     shapeRenderer->init();
 
     // RESOURCE REGISTRY TEST
+    #if 0
     {
         // "Import"
         // Importer assigns resource GUID
         // Could be concurrently
         eeng::Mesh mesh1, mesh2;
         mesh1.x = 0; mesh2.x = 1;
+        eeng::Guid guid1 = eeng::Guid::generate();
+        eeng::Guid guid2 = eeng::Guid::generate();
+        // mesh1.guid = guid1; STORE GUID IN RESOURCE?
+        // mesh2.guid = guid2;
 
         eeng::ResourceRegistry registry;
-        auto h1 = registry.add<eeng::Mesh>(mesh1);
-        auto h2 = registry.add<eeng::Mesh>(mesh2);
+        auto h1 = registry.add<eeng::Mesh>(guid1, mesh1);
+        auto h2 = registry.add<eeng::Mesh>(guid2, mesh2);
 
         {
             auto& mesh = registry.get(h1);
@@ -55,9 +60,11 @@ bool Game::init()
 
         logRegisteredResourceTypes(registry);
     }
+    #endif
 
     // Do some entt stuff
     entity_registry = std::make_shared<entt::registry>();
+    entity_registry->storage<int>();
     auto ent1 = entity_registry->create();
     struct Tfm
     {
