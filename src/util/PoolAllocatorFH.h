@@ -80,24 +80,7 @@ namespace eeng {
             return reinterpret_cast<const T*>(static_cast<char*>(ptr) + index);
         }
 
-        template<class T>
-        inline T& val_at(void* ptr, index_type index)
-        {
-            return *ptr_at<T>(ptr, index);
-            //        const_cast<const FreelistPool2*>(this)->get_at(ptr, index);
-            //        return *reinterpret_cast<T*>((char*)ptr + index);
-        }
-
-        template<class T>
-        inline const T& val_at(void* ptr, index_type index) const
-        {
-            return *ptr_at<T>(ptr, index);
-            //        return *reinterpret_cast<T*>((char*)ptr + index);
-        }
-
     public:
-
-        //    FreelistPool2() = default;
 
         PoolAllocatorFH(
             const TypeInfo type_info,
@@ -106,45 +89,22 @@ namespace eeng {
             m_pool_alignment(align_up(pool_alignment, PoolMinAlignment))
         {
             assert(type_info.size >= sizeof(index_type));
-            //        assert(elem_size >= sizeof(index_type));
-
-#if 0
-            std::cout << "Created pool(size = [auto size 0]" //<< size
-                << ", pool_alignment = " << pool_alignment << "): " << std::endl
-                << "\tm_capacity " << m_capacity << std::endl
-                << "\telement size " << m_elem_size << std::endl
-                << "\tm_pool_alignment " << m_pool_alignment << std::endl;
-#endif
         }
 
-        //    FreelistPool2(FreelistPool2&& rhs) noexcept
-        //    {
-        //        m_elem_size         = std::exchange(rhs.m_elem_size, 0ul);
-        //        m_pool_alignment    = std::exchange(rhs.m_pool_alignment, 0ul);
-        //        m_pool              = std::exchange(rhs.m_pool, nullptr);
-        //        m_capacity          = std::exchange(rhs.m_capacity, 0ul);
-        //        m_free_first        = std::exchange(rhs.m_free_first, m_index_null);
-        //        m_free_last         = std::exchange(rhs.m_free_last, m_index_null);
-        //    }
-        //
-        //    FreelistPool2& operator=(FreelistPool2&& rhs) noexcept
-        //    {
-        //        if (this == &rhs) return *this;
-        //
-        //        m_elem_size         = std::exchange(rhs.m_elem_size, 0ul);
-        //        m_pool_alignment    = std::exchange(rhs.m_pool_alignment, 0ul);
-        //        m_pool              = std::exchange(rhs.m_pool, nullptr);
-        //        m_capacity          = std::exchange(rhs.m_capacity, 0ul);
-        //        m_free_first        = std::exchange(rhs.m_free_first, m_index_null);
-        //        m_free_last         = std::exchange(rhs.m_free_last, m_index_null);
-        //        return *this;
-        //    }
-        //
-        //    FreelistPool2(const FreelistPool2&) = delete;
-        //    FreelistPool2& operator=(const FreelistPool2&) = delete;
+        PoolAllocatorFH(const PoolAllocatorFH&) = delete;
+        PoolAllocatorFH& operator=(const PoolAllocatorFH&) = delete;
+        PoolAllocatorFH(PoolAllocatorFH&&) = delete;
+        PoolAllocatorFH& operator=(PoolAllocatorFH&&) = delete;
 
         ~PoolAllocatorFH()
         {
+#if 0
+            // Require that no elements remain in use
+            const auto total_slots = m_capacity / m_type_info.size;
+            assert(count_free() == static_cast<index_type>(total_slots)
+                && "FreelistPoolFH destroyed with live elements still allocated");
+#endif
+
             if (m_pool)
                 aligned_free(&m_pool);
         }
@@ -173,7 +133,7 @@ namespace eeng {
             if (m_free_first == m_free_last)
                 m_free_first = m_free_last = m_index_null;
             else
-                m_free_first = val_at<index_type>(m_pool, m_free_first);
+                m_free_first = *ptr_at<index_type>(m_pool, m_free_first);
 
             // Construct
             if constexpr (std::is_aggregate_v<T>)
@@ -199,12 +159,12 @@ namespace eeng {
             if (m_free_first == m_index_null)
             {
                 // Free-list is empty
-                val_at<index_type>(m_pool, handle.ofs) = m_index_null;
+                *ptr_at<index_type>(m_pool, handle.ofs) = m_index_null;
                 m_free_first = m_free_last = handle.ofs;
             }
             else
             {
-                val_at<index_type>(m_pool, handle.ofs) = m_free_first;
+                *ptr_at<index_type>(m_pool, handle.ofs) = m_free_first;
                 m_free_first = handle.ofs;
             }
         }
@@ -258,7 +218,7 @@ namespace eeng {
             while (cur != m_index_null)
             {
                 oss << cur / m_type_info.size << " -> ";
-                cur = val_at<index_type>(m_pool, cur);
+                cur = *ptr_at<index_type>(m_pool, cur);
             }
             oss << "null\n";
 
@@ -293,7 +253,7 @@ namespace eeng {
                 index += m_type_info.size)
             {
                 if (used[index / m_type_info.size])
-                    f(val_at<T>(m_pool, index));
+                    f(*ptr_at<T>(m_pool, index));
             }
         }
 
@@ -302,27 +262,20 @@ namespace eeng {
         template<class T>
         void expand()
         {
-            //        std::cout << "Before expand: " << std::endl; dump_pool();
-
             size_t prev_capacity = m_capacity;
             size_t new_capacity = next_power_of_two(m_capacity / m_type_info.size + 1ull) * m_type_info.size;
 
             resize<T>(new_capacity);
             expand_freelist(prev_capacity, m_capacity);
-
-            //        std::cout << "After resize: " << std::endl; dump_pool();
         }
 
-        // Link-in new elements at the back
+        /// @brief Expand the freelist to a new capacity.
+        /// @param old_capacity The previous capacity in bytes.
+        /// @param new_capacity The new capacity in bytes.
         void expand_freelist(
             size_t old_capacity,
             size_t new_capacity)
         {
-            // Assume everything is linked up until old_capacity-1:
-            // link-in from old_capacity to new_capacity-1
-
-            // std::lock_guard lock(m_mutex);
-
             assert(new_capacity > old_capacity);
             assert(new_capacity >= m_type_info.size);
             if (new_capacity == old_capacity) return;
@@ -336,23 +289,23 @@ namespace eeng {
                 i += m_type_info.size)
             {
                 if (m_free_last != m_index_null)
-                    val_at<index_type>(m_pool, m_free_last) = i;
+                    *ptr_at<index_type>(m_pool, m_free_last) = i;
                 m_free_last = i;
             }
             // The last free element links to null
-            val_at<index_type>(m_pool, m_free_last) = m_index_null;
+            *ptr_at<index_type>(m_pool, m_free_last) = m_index_null;
         }
 
-        // Resize to a new capacity larger than the current one.
-        // All live (non-free) elements are moved to the new buffer.
-        // The freelist is preserved but not expanded; new elements must be linked via expand_freelist().
-        //
-        // Shrinking the pool is not supported: reducing capacity may invalidate existing objects
-        // or corrupt the freelist structure.
+        /// @brief Resize to a new capacity larger than the current one.
+        /// @tparam T The type of elements in the pool.
+        /// @param size The new size in bytes.
+        /// @details All elements are moved to the new buffer.
+        //          The freelist is preserved but not expanded:
+        //          new elements must be linked via expand_freelist().
+        //          Shrinking the pool is not supported
         template<class T>
         void resize(size_t size)
         {
-            // std::lock_guard lock(m_mutex);
             assert(size >= m_capacity && "Shrinking the pool is not supported");
             if (size == m_capacity) return;
 
@@ -364,19 +317,8 @@ namespace eeng {
                 aligned_alloc(&m_pool, m_capacity, m_pool_alignment);
 
             // Copy data to new location
-            // Does not assume that the free-list is empty
-    //        if (m_pool && new_pool)
-    //            memcpy(new_pool, m_pool, m_capacity);
             if (prev_pool && m_pool)
             {
-                //            if constexpr (std::is_standard_layout_v<T>)
-                //            {
-                //                memcpy(m_pool, prev_pool, prev_capacity);
-                //                std::cout << "HELLO FROM SLT" << std::endl;
-                //            }
-                //            else
-                //            {
-                //                std::cout << "HELLO FROM NON-SLT" << std::endl;
                 std::vector<bool> used(prev_capacity / m_type_info.size, true);
                 freelist_visitor([&](index_type i) {
                     used[i / m_type_info.size] = false;
@@ -393,9 +335,8 @@ namespace eeng {
                         src_elem_ptr->~T();
                     }
                     else
-                        val_at<index_type>(m_pool, index) = val_at<index_type>(prev_pool, index);
+                        *ptr_at<index_type>(m_pool, index) = *ptr_at<index_type>(prev_pool, index);
                 }
-                //            }
             }
 
             if (prev_pool)
@@ -411,7 +352,7 @@ namespace eeng {
             while (cur_index != m_index_null)
             {
                 f(cur_index);
-                cur_index = val_at<index_type>(m_pool, cur_index); // get_free_diff(m_pool, cur_index);
+                cur_index = *ptr_at<index_type>(m_pool, cur_index);
             }
         }
     };
