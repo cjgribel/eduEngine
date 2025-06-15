@@ -12,6 +12,7 @@
 #include <limits> // std::numeric_limits
 #include <algorithm> // std::copy
 #include <cstring> // std::memcpy
+#include <sstream> // std::ostringstream
 #include <stdexcept> // std::bad_alloc
 #include <mutex> // std::mutex
 #include "memaux.h"
