@@ -6,14 +6,25 @@
 #include <cstddef>
 #include <cstdint>
 #include "Handle.h"
+#include "Log.hpp"
 // #include "hash_combine.h"
 
 namespace eeng
 {
-    struct MockResource1 
+    struct MockResource1
     {
         int x{};
         float y{};
+
+        MockResource1()
+        {
+            eeng::Log("MockResource1 created");
+        }
+
+        ~MockResource1()
+        {
+            eeng::Log("MockResource1 destroyed");
+        }
     };
 
     struct MockResource2

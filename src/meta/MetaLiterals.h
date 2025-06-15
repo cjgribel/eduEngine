@@ -19,6 +19,8 @@ constexpr entt::hashed_string deserialize_hs = "deserialize"_hs;
 
 constexpr entt::hashed_string inspect_hs = "inspect"_hs;
 
+constexpr entt::hashed_string assure_storage_hs = "assure_storage"_hs;
+
 //constexpr entt::hashed_string readonly_hs = "readonly"_hs;
 
 //constexpr bool ReadonlyDefault = false;

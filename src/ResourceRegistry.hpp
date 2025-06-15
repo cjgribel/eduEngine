@@ -23,6 +23,7 @@
 // #include <unordered_map>
 
 #include "entt/entt.hpp"
+#include "MetaLiterals.h"
 #include "Handle.h"
 #include "Guid.h"
 #include "PoolAllocatorTFH.h"
@@ -76,9 +77,9 @@ namespace eeng
 
 namespace std {
     template<>
-    struct hash<eeng::MetaHandle> 
+    struct hash<eeng::MetaHandle>
     {
-        size_t operator()(eeng::MetaHandle const& m) const noexcept 
+        size_t operator()(eeng::MetaHandle const& m) const noexcept
         {
             return ::hash_combine(m.ofs, m.ver, m.type.id());
         }
@@ -149,6 +150,53 @@ namespace eeng
 
     class Storage
     {
+        class IPool
+        {
+        public:
+            virtual ~IPool() = default;
+            virtual MetaHandle add(const Guid& guid, entt::meta_any data) = 0;
+            // virtual std::optional<entt::meta_any> get(const Handle& handle) const = 0;
+            // virtual bool valid(const Handle& handle) const = 0;
+            // virtual void remove(const Handle& handle) = 0;
+        };
+
+        template<typename T>
+        class Pool : public IPool
+        {
+        public:
+            using Handle = Handle<T>;
+
+            MetaHandle add(const Guid& guid, entt::meta_any data)
+            {
+                std::lock_guard lock(m_mutex); // ??? Do locking in Storage?
+
+                assert(guid != Guid::invalid());
+                assert(!map_contains(m_guid_to_handle, guid));
+                //assert(m_guid_to_handle.find(guid) == m_guid_to_handle.end());
+
+                auto handle = m_pool.create(data.cast<T>());
+                m_guid_to_handle[guid] = handle;
+                m_handle_to_guid[handle] = guid;
+
+                return handle;
+            }
+
+        private:
+            PoolAllocatorTFH<T> m_pool;
+            VersionMap<T> m_versions; // TODO
+            std::vector<uint32_t> m_ref_counts; // TODO
+
+            std::unordered_map<Guid, Handle> m_guid_to_handle;
+            std::unordered_map<Handle, Guid> m_handle_to_guid;
+
+            inline bool map_contains(const auto& map, const auto& key)
+            {
+                return map.find(key) != map.end();
+            }
+
+            mutable std::mutex m_mutex;
+        };
+
     public:
         Storage() = default;
         // Storage(const Storage&) = delete;
@@ -179,48 +227,30 @@ namespace eeng
         // Takes an instance probably, not ... (Resource created elsewhere / by AssetIndex)
         // add(meta_type, meta_any, const Guid& guid = Guid::invalid())
         MetaHandle add(
-            entt::meta_type type,
+            //entt::meta_type type,
             entt::meta_any data,
             const Guid& guid)
         {
+            auto& pool = get_or_create_pool(data.type());
+            return pool.add(guid, std::move(data));
+
             // auto id = type.id();
             // auto it = pools.find(id);
             // if (it == pools.end())
             // {
-            //     type.func("assure_storage"_hs).invoke({}, entt::forward_as_meta(*this));
-            //     it = pools.find(id);
-            //     if (it == pools.end())
-            //         throw std::runtime_error("Pool creation failed");
+                //     type.func("assure_storage"_hs).invoke({}, entt::forward_as_meta(*this));
+                //     it = pools.find(id);
+                //     if (it == pools.end())
+                //         throw std::runtime_error("Pool creation failed");
             // }
 
             // auto& pool = static_cast<Pool<void>&>(*it->second);
             // pool.add(guid, data);
-            return MetaHandle {};
+            return MetaHandle{};
         }
 
 
     private:
-        class IPool
-        {
-        public:
-            virtual ~IPool() = default;
-        };
-
-        template<typename T>
-        class Pool : public IPool
-        {
-        public:
-            using Handle = Handle<T>;
-        private:
-            PoolAllocatorTFH<T> m_pool;
-            VersionMap<T> m_versions;
-            std::vector<uint32_t> m_ref_counts;
-
-            std::unordered_map<Guid, Handle> m_guid_map;
-            std::unordered_map<Handle, Guid> m_handle_to_guid;
-
-            mutable std::mutex m_mutex;
-        };
 
         // -> registry.storage() -> [entt::id_type, entt::meta_type]
         // pool()
@@ -230,20 +260,31 @@ namespace eeng
 
         // pool(entt::id_type id) 
 
-    private:
-        // IPool& get_or_create_pool(entt::meta_type type)
-        // {
-        //     auto id = type.id();
-        //     auto it = pools.find(id);
-        //     if (it == pools.end())
-        //     {
-        //         type.func("assure_storage"_hs).invoke({}, entt::forward_as_meta(*this));
-        //         it = pools.find(id);
-        //         if (it == pools.end())
-        //             throw std::runtime_error("Pool creation failed");
-        //     }
-        //     return *it->second;
-        // }
+        void assure_storage(entt::meta_type meta_type)
+        {
+            entt::meta_func meta_func = meta_type.func(assure_storage_hs);
+            assert(meta_func);
+            entt::meta_any res = meta_func.invoke({}, entt::forward_as_meta(*this));
+            assert(res);
+        }
+
+        IPool& get_or_create_pool(entt::meta_type type)
+        {
+            auto id = type.id();
+            auto it = pools.find(id);
+            if (it == pools.end())
+            {
+                assure_storage(type);
+                // auto meta_func = type.func(assure_storage_hs);
+                // assert(meta_func);
+                // meta_func.invoke({}, entt::forward_as_meta(*this));
+                //type.func("assure_storage"_hs).invoke({}, entt::forward_as_meta(*this));
+                it = pools.find(id);
+                if (it == pools.end())
+                    throw std::runtime_error("Pool creation failed");
+            }
+            return *it->second;
+        }
 
         mutable std::unordered_map<entt::id_type, std::unique_ptr<IPool>> pools;
     };
@@ -508,9 +549,9 @@ namespace eeng
                 auto* raw_ptr = pool.get();
                 pools[type] = std::move(pool);
                 return raw_ptr;
-            }
-            return static_cast<ResourcePool<T>*>(it->second.get());
 }
+            return static_cast<ResourcePool<T>*>(it->second.get());
+        }
     };
 #endif
 

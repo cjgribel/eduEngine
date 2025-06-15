@@ -174,7 +174,7 @@ namespace eeng {
             .traits(MetaFlags::hidden | MetaFlags::read_only)
 
             // Required for all resource types
-            .template func<&assure_storage<MockResource1>>("assure_storage"_hs)
+            .template func<&assure_storage<MockResource1>>(assure_storage_hs)
 
             //.func < [](eeng::Storage& storage) { } > (inspect_hs)
             //.data<&BehaviorScript::on_collision/*, entt::as_ref_t*/>("on_collision"_hs).prop(display_name_hs, "on_collision")

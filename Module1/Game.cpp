@@ -8,6 +8,9 @@
 // --> ENGINE API
 #include "AssimpImporter.hpp"
 
+// FOR TESTS
+#include "ResourceTypes.h"
+
 namespace {
 
 #if 0
@@ -34,8 +37,32 @@ bool Game::init()
     // RESOURCE REGISTRY TEST
 #if 1
     {
-        eeng::Storage registry;
-        //registry.assure_storage<eeng::Mesh>();
+        eeng::Log("Storage test begins");
+        eeng::Storage storage; // <- Engine API
+
+        // RUNTIME
+
+        // "Import new resource" (GUI)
+        eeng::MockResource1 mockResource1; // <- IMPORTER
+        // resource -> AssetIndex -> Serialize
+
+        // Add/Load resource - by NAME or GUID"
+        // 1. AssetIndex -> meta_any resource -> ResourceRegistry/Storage
+        // ...
+        entt::meta_any resource1 = mockResource1;
+        eeng::Guid guid1 = eeng::Guid::generate(); // Fake guid (from AssetIndex)
+        // 2. meta_any resource -> ResourceRegistry/Storage:
+        storage.add(resource1, guid1);
+
+        // Get & "use" resource
+        // Cast meta_any to resource type
+        // ...
+
+        // Remove resource from ResourceRegistry/Storage
+        // WHO DOES THIS
+        // ...
+
+        eeng::Log("Storage test ends");
     }
 #endif
 #if 0
@@ -68,7 +95,7 @@ bool Game::init()
         // registry.remove(h); // 
 
         logRegisteredResourceTypes(registry);
-    }
+}
 #endif
 
     // Do some entt stuff
@@ -338,7 +365,7 @@ void Game::render(
         shapeRenderer->push_states(glm_aux::T(glm::vec3(0.0f, 0.0f, -5.0f)));
         ShapeRendering::DemoDraw(shapeRenderer);
         shapeRenderer->pop_states<glm::mat4>();
-    }
+}
 #endif
 
     // Draw shape batches
