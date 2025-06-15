@@ -10,55 +10,35 @@
 
 namespace eeng
 {
-#if 0
-    // -> Handle
-    struct MetaHandle
-    {
-        uint32_t ofs = 0;
-        uint32_t version = 0;
-        entt::meta_type type = {};
-
-        // template<typename T>
-        // MetaHandle(Handle<T> h)
-        //     : ofs(h.ofs), version(h.version), type(entt::resolve<T>()) {
-        // }
-        // MetaHandle() = default;
-
-        bool valid() const { return version != 0 && type; }
-
-        bool operator==(const MetaHandle& other) const {
-            return ofs == other.ofs && version == other.version && type == other.type;
-        }
-    };
-#endif
-
-    // -- 
-
     using handle_ofs_type = size_t;
-    using handle_version_type = uint16_t;
+    using handle_ver_type = uint16_t;
+    constexpr handle_ofs_type  handle_ofs_null = std::numeric_limits<handle_ofs_type>::max();
+    constexpr handle_ver_type  handle_ver_null = std::numeric_limits<handle_ver_type>::max();
 
-    const size_t handle_ofs_null = -1;
 
-    // -> THandle
     template<class T>
     struct Handle
     {
         using value_type = T;
         using ptr_type = T*;
 
-        handle_ofs_type ofs = handle_ofs_null; // -> ofs
-        handle_version_type version = 0;
+        handle_ofs_type ofs;
+        handle_ver_type ver;
+
+        Handle() : ofs(handle_ofs_null), ver(handle_ver_null) {}
+        Handle(handle_ofs_type ofs) : ofs(ofs), ver(handle_ver_null) {}
+        Handle(handle_ofs_type ofs, handle_ver_type ver) : ofs(ofs), ver(ver) {}
 
         void reset()
         {
             ofs = handle_ofs_null;
-            version = 0;
+            ver = handle_ver_null;
         }
 
-        bool operator== (Handle<T> rhs) const
+        bool operator== (const Handle<T> rhs) const
         {
             if (ofs != rhs.ofs) return false;
-            if (version != rhs.version) return false;
+            if (ver != rhs.ver) return false;
             return true;
         }
 
@@ -84,7 +64,7 @@ namespace std {
     {
         size_t operator()(const eeng::Handle<T>& h) const noexcept
         {
-            return hash_combine(h.ofs, h.version);
+            return hash_combine(h.ofs, h.ver);
         }
     };
 }

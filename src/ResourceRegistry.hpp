@@ -25,16 +25,128 @@
 #include "entt/entt.hpp"
 #include "Handle.h"
 #include "Guid.h"
-#include "PoolAllocatorFH.h"
+#include "PoolAllocatorTFH.h"
 // #include "Texture.hpp"
 
 namespace eeng
 {
+    struct MetaHandle
+    {
+        handle_ofs_type ofs;
+        handle_ver_type ver;
+        entt::meta_type type = {};
 
+        MetaHandle()
+            : ofs(handle_ofs_null), ver(handle_ver_null) {
+        }
+
+        template<typename T>
+        MetaHandle(Handle<T> h)
+            : ofs(h.ofs), ver(h.ver), type(entt::resolve<T>()) {
+        }
+
+        bool valid() const noexcept {
+            return ofs != handle_ofs_null
+                && ver != handle_ver_null
+                && static_cast<bool>(type);
+        }
+
+        bool empty() const {
+            return !valid();
+        }
+
+        auto operator!() const noexcept { return !valid(); }
+        explicit operator bool() const noexcept { return valid(); }
+
+        template<typename T>
+        std::optional<Handle<T>> cast() const
+        {
+            // ensure the run‐time type matches
+            if (type != entt::resolve<T>()) {
+                return std::nullopt;
+            }
+            return Handle<T>{ ofs, ver };
+        }
+
+        bool operator==(const MetaHandle& other) const {
+            return ofs == other.ofs && ver == other.ver && type == other.type;
+        }
+    };
 } // namespace eeng
+
+namespace std {
+    template<>
+    struct hash<eeng::MetaHandle> 
+    {
+        size_t operator()(eeng::MetaHandle const& m) const noexcept 
+        {
+            return ::hash_combine(m.ofs, m.ver, m.type.id());
+        }
+    };
+}
 
 namespace eeng
 {
+    template<class T>
+    class VersionMap
+    {
+        std::vector<handle_ver_type> versions;
+        static constexpr size_t elem_size = sizeof(T);
+
+    public:
+        VersionMap() = default;
+
+        void resize(size_t bytes)
+        {
+            versions.resize(bytes / elem_size, handle_ver_null);
+        }
+
+        // Assign version to handle, either 0 or current version
+        void versionify(Handle<T>& handle)
+        {
+            assert(handle);
+            auto index = get_index(handle);
+
+            if (versions[index] == handle_ver_null)
+                handle.ver = versions[index] = 0;
+            else
+                handle.ver = versions[index];
+        }
+
+        // Handle is valid if not null and version matches
+        bool validate(const Handle<T>& handle) const
+        {
+            if (handle.ver == handle_ver_null) return false;
+
+            auto index = get_index(handle);
+            return handle.ver == versions[index];
+        }
+
+        // Increment version for handle, used when removing
+        void remove(const Handle<T>& handle)
+        {
+            assert(handle);
+            auto index = get_index(handle);
+            versions[index]++;
+        }
+
+        void print() const
+        {
+            for (auto& v : versions)
+                std::cout << v << ", ";
+            std::cout << std::endl;
+        }
+
+    private:
+
+        handle_ofs_type get_index(const Handle<T>& handle) const
+        {
+            auto index = handle.ofs / elem_size;
+            assert(index < versions.size());
+            return index;
+        }
+    };
+
     class Storage
     {
     public:
@@ -46,7 +158,8 @@ namespace eeng
         Storage(Storage const&) = delete;
         Storage& operator=(Storage const&) = delete;
         Storage(Storage&&) noexcept = default;
-        Storage& operator=(Storage&& other) noexcept {
+        Storage& operator=(Storage&& other) noexcept
+        {
             pools.swap(other.pools);
             return *this;
         }
@@ -61,6 +174,31 @@ namespace eeng
                 pools[id] = std::make_unique<Pool<T>>();
         }
 
+        // NOT TEMPLATED
+        // Return untyped handle
+        // Takes an instance probably, not ... (Resource created elsewhere / by AssetIndex)
+        // add(meta_type, meta_any, const Guid& guid = Guid::invalid())
+        MetaHandle add(
+            entt::meta_type type,
+            entt::meta_any data,
+            const Guid& guid)
+        {
+            // auto id = type.id();
+            // auto it = pools.find(id);
+            // if (it == pools.end())
+            // {
+            //     type.func("assure_storage"_hs).invoke({}, entt::forward_as_meta(*this));
+            //     it = pools.find(id);
+            //     if (it == pools.end())
+            //         throw std::runtime_error("Pool creation failed");
+            // }
+
+            // auto& pool = static_cast<Pool<void>&>(*it->second);
+            // pool.add(guid, data);
+            return MetaHandle {};
+        }
+
+
     private:
         class IPool
         {
@@ -71,7 +209,17 @@ namespace eeng
         template<typename T>
         class Pool : public IPool
         {
+        public:
+            using Handle = Handle<T>;
+        private:
+            PoolAllocatorTFH<T> m_pool;
+            VersionMap<T> m_versions;
+            std::vector<uint32_t> m_ref_counts;
 
+            std::unordered_map<Guid, Handle> m_guid_map;
+            std::unordered_map<Handle, Guid> m_handle_to_guid;
+
+            mutable std::mutex m_mutex;
         };
 
         // -> registry.storage() -> [entt::id_type, entt::meta_type]
@@ -100,71 +248,14 @@ namespace eeng
         mutable std::unordered_map<entt::id_type, std::unique_ptr<IPool>> pools;
     };
 
-static_assert(!std::is_copy_constructible_v<Storage>);
-static_assert(!std::is_copy_assignable_v<Storage>);
-static_assert(std::is_move_constructible_v<Storage>);
-static_assert(std::is_move_assignable_v<Storage>);
+    static_assert(!std::is_copy_constructible_v<Storage>);
+    static_assert(!std::is_copy_assignable_v<Storage>);
+    static_assert(std::is_move_constructible_v<Storage>);
+    static_assert(std::is_move_assignable_v<Storage>);
 
 #if 0
 #define version_null 0
-    template<class T>
-    class VersionMap
-    {
-        std::vector<handle_version_type> versions;
 
-        const size_t elem_size = sizeof(T);
-
-    public:
-        VersionMap() : versions(0, version_null) {}
-
-        void resize(size_t bytes)
-        {
-            versions.resize(bytes / elem_size);
-        }
-
-        void versionify(Handle<T>& h)
-        {
-            size_t index = h.ofs / elem_size;
-            assert(index < versions.size());
-
-            if (versions[index] == version_null)
-                h.version = versions[index] = 1;
-            else
-                h.version = versions[index]; // = versions[index] + 1;
-        }
-
-        bool validate(const Handle<T>& h) const
-        {
-            if (h.version == version_null) return false;
-
-            size_t index = h.ofs / elem_size;
-            assert(index < versions.size());
-
-            //        if (!h.version) std::cout << h << " has no version. ";
-            //        if (!versions[index]) std::cout << h << ", index " << index << " is unversioned. ";
-            //        if (h.version != versions[index]) std::cout << h << " version mismatch: " << h.version << " != " << versions[index];
-            //        if (h.version && h.version == versions[index]) std::cout << h << " index " << index << " OK";
-            //        std::cout << std::endl;
-
-            return h.version == versions[index];
-        }
-
-        void remove(const Handle<T>& h)
-        {
-            size_t index = h.ofs / elem_size;
-            assert(index < versions.size());
-
-            //        versions[index] = version_null;
-            versions[index]++;
-        }
-
-        void print() const
-        {
-            for (auto& v : versions)
-                std::cout << v << ", ";
-            std::cout << std::endl;
-        }
-    };
 
     class IResourcePool
     {
@@ -419,7 +510,7 @@ static_assert(std::is_move_assignable_v<Storage>);
                 return raw_ptr;
             }
             return static_cast<ResourcePool<T>*>(it->second.get());
-        }
+}
     };
 #endif
 
