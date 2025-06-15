@@ -1,13 +1,24 @@
 // Licensed under the MIT License. See LICENSE file for details.
 
 // #include <iostream>
-#include "entt/entt.hpp"
+#include <entt/entt.hpp>
+#include <entt/meta/pointer.hpp>
 #include "nlohmann/json.hpp"
 #include "config.h"
 #include "MetaReg.hpp"
 #include "ResourceTypes.h"
 #include "MetaLiterals.h"
+#include "ResourceRegistry.hpp" // Storage
 #include "MetaInfo.h"
+
+// namespace entt {
+//   template<typename T>
+//   struct is_meta_pointer_like<T*> : std::true_type {};
+// }
+// namespace entt {
+//     template<>
+//     struct is_meta_pointer_like<eeng::Storage*> : std::true_type {};
+// }
 
 namespace eeng {
 
@@ -123,6 +134,12 @@ namespace eeng {
                 // .template func<&deserialize_handle<T>>("deserialize"_hs)
                 ;
         }
+
+        template<class T>
+        void assure_storage(eeng::Storage& storage)
+        {
+            storage.assure_storage<T>();
+        }
     }
 
     void register_meta_types()
@@ -154,7 +171,15 @@ namespace eeng {
             // Register member 'y' with DisplayInfo and multiple DataFlags
             .data<&MockResource1::y>("y"_hs)
             .custom<DataMetaInfo>(DataMetaInfo{ "y", "A float member 'y'" })
-            .traits(MetaFlags::hidden | MetaFlags::read_only);
+            .traits(MetaFlags::hidden | MetaFlags::read_only)
+
+            // Required for all resource types
+            .template func<&assure_storage<MockResource1>>("assure_storage"_hs)
+
+            //.func < [](eeng::Storage& storage) { } > (inspect_hs)
+            //.data<&BehaviorScript::on_collision/*, entt::as_ref_t*/>("on_collision"_hs).prop(display_name_hs, "on_collision")
+
+            ;
     }
 
 } // namespace eeng

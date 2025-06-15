@@ -75,7 +75,7 @@ private:
     // Entity registry - to use in labs
     std::shared_ptr<entt::registry> entity_registry; // unique + and out weak ptrs?
 
-    std::unique_ptr<eeng::ResourceRegistry> resource_registry;
+    // std::unique_ptr<eeng::ResourceRegistry> resource_registry;
 
     // <-- ENGINE API
 

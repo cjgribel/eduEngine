@@ -9,6 +9,8 @@
 #include "AssimpImporter.hpp"
 
 namespace {
+
+#if 0
     // Log all registered resource types
     void logRegisteredResourceTypes(eeng::ResourceRegistry& registry)
     {
@@ -16,8 +18,9 @@ namespace {
         eeng::Log("Meshes:");
         registry.for_all<eeng::Mesh>([](eeng::Mesh& m) {
             eeng::Log("Mesh value %zu", m.x);
-        });
+            });
     }
+#endif
 }
 
 bool Game::init()
@@ -29,7 +32,13 @@ bool Game::init()
     shapeRenderer->init();
 
     // RESOURCE REGISTRY TEST
-    #if 0
+#if 1
+    {
+        eeng::Storage registry;
+        //registry.assure_storage<eeng::Mesh>();
+    }
+#endif
+#if 0
     {
         // "Import"
         // Importer assigns resource GUID
@@ -60,7 +69,7 @@ bool Game::init()
 
         logRegisteredResourceTypes(registry);
     }
-    #endif
+#endif
 
     // Do some entt stuff
     entity_registry = std::make_shared<entt::registry>();

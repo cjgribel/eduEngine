@@ -6,6 +6,7 @@
 #include <limits>
 #include <vector>
 #include <unordered_map>
+#include <type_traits> // for std::is_copy_constructible, std::is_move_constructible, etc.
 #include <typeindex>
 #include <memory>
 #include <string>
@@ -21,6 +22,7 @@
 // #include <optional>
 // #include <unordered_map>
 
+#include "entt/entt.hpp"
 #include "Handle.h"
 #include "Guid.h"
 #include "PoolAllocatorFH.h"
@@ -33,6 +35,77 @@ namespace eeng
 
 namespace eeng
 {
+    class Storage
+    {
+    public:
+        Storage() = default;
+        // Storage(const Storage&) = delete;
+        // Storage& operator=(const Storage&) = delete;
+        // Storage(Storage&&) = delete;
+        // Storage& operator=(Storage&&) = delete;
+        Storage(Storage const&) = delete;
+        Storage& operator=(Storage const&) = delete;
+        Storage(Storage&&) noexcept = default;
+        Storage& operator=(Storage&& other) noexcept {
+            pools.swap(other.pools);
+            return *this;
+        }
+
+        template<typename T>
+        void assure_storage()
+        {
+            auto type = entt::resolve<T>();
+            auto id = type.id();
+
+            if (pools.find(id) == pools.end())
+                pools[id] = std::make_unique<Pool<T>>();
+        }
+
+    private:
+        class IPool
+        {
+        public:
+            virtual ~IPool() = default;
+        };
+
+        template<typename T>
+        class Pool : public IPool
+        {
+
+        };
+
+        // -> registry.storage() -> [entt::id_type, entt::meta_type]
+        // pool()
+
+        // template<class T>
+        // pool()
+
+        // pool(entt::id_type id) 
+
+    private:
+        // IPool& get_or_create_pool(entt::meta_type type)
+        // {
+        //     auto id = type.id();
+        //     auto it = pools.find(id);
+        //     if (it == pools.end())
+        //     {
+        //         type.func("assure_storage"_hs).invoke({}, entt::forward_as_meta(*this));
+        //         it = pools.find(id);
+        //         if (it == pools.end())
+        //             throw std::runtime_error("Pool creation failed");
+        //     }
+        //     return *it->second;
+        // }
+
+        mutable std::unordered_map<entt::id_type, std::unique_ptr<IPool>> pools;
+    };
+
+static_assert(!std::is_copy_constructible_v<Storage>);
+static_assert(!std::is_copy_assignable_v<Storage>);
+static_assert(std::is_move_constructible_v<Storage>);
+static_assert(std::is_move_assignable_v<Storage>);
+
+#if 0
 #define version_null 0
     template<class T>
     class VersionMap
@@ -348,6 +421,11 @@ namespace eeng
             return static_cast<ResourcePool<T>*>(it->second.get());
         }
     };
+#endif
 
 } // namespace eeng
 
+// namespace entt {
+//   template<>
+//   struct is_meta_pointer_like<eeng::Storage*> : std::true_type {};
+// }

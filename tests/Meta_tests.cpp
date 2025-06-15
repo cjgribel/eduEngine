@@ -268,8 +268,8 @@ TEST_F(MetaRegistrationTest, VerifyMutateAndSumFunctionCall)
     auto result_any = func_meta.invoke(
         instance,
         value_arg,
-        entt::forward_as_meta(arg_ref),
-        entt::forward_as_meta(arg_const_ref),
+        std::move(ref_arg), // or entt::forward_as_meta(arg_ref),
+        std::move(const_ref_arg), // or entt::forward_as_meta(arg_const_ref),
         ptr_arg,
         const_ptr_arg
     );
