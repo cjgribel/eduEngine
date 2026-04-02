@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.11)
 #
 project(DA376B_Labs
   VERSION 1.0
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 message(STATUS "Starting CMake configuration for DA376B_Labs project")
@@ -73,6 +73,27 @@ if(NOT sdl2_POPULATED)
     message(STATUS "SDL2 populated and added to the build")
 endif()
 include_directories(${sdl2_SOURCE_DIR}/include)
+
+#
+# Fetch SDL2 MIXER
+#
+
+set(SDL2MIXER_OPUS OFF CACHE BOOL "" FORCE)
+
+message(STATUS "Fetching SDL2 Mixer")
+FetchContent_Declare(
+    sdl_mixer
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+    GIT_TAG        release-2.8.1
+)
+FetchContent_GetProperties(sdl_mixer)
+if(NOT sdl_mixer_POPULATED)
+    FetchContent_Populate(sdl_mixer)
+    add_subdirectory(${sdl_mixer_SOURCE_DIR} ${sdl_mixer_BINARY_DIR})
+    message(STATUS "SDL2 Mixer populated and added to the build")
+endif()
+include_directories(${sdl_mixer_SOURCE_DIR}/include)
+
 
 #
 # Fetch glew
@@ -207,6 +228,7 @@ set_target_properties(Module1 PROPERTIES
 
 target_link_libraries(Module1 PRIVATE 
     SDL2 
+    SDL2_mixer 
     assimp 
     libglew_static 
     glm::glm 
