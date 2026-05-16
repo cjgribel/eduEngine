@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.11)
 #
 project(DA376B_Labs
   VERSION 1.0
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 message(STATUS "Starting CMake configuration for DA376B_Labs project")
@@ -88,7 +88,11 @@ FetchContent_Declare(
 FetchContent_GetProperties(glew)
 if(NOT glew_POPULATED)
   FetchContent_Populate(glew)
-  add_subdirectory(${glew_SOURCE_DIR} ${glew_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+if(NOT TARGET libglew_static)
+  add_library(libglew_static STATIC ${glew_SOURCE_DIR}/src/glew.c)
+  target_include_directories(libglew_static PUBLIC ${glew_SOURCE_DIR}/include)
+  target_compile_definitions(libglew_static PUBLIC GLEW_STATIC GLEW_NO_GLU)
   message(STATUS "GLEW populated and added to the build")
 endif()
 
